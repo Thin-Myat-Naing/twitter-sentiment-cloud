@@ -1,0 +1,284 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+
+body {
+
+    font-family:
+        Arial,
+        sans-serif;
+
+    background:
+        #f5f7fb;
+
+    color:
+        #222;
+
+}
+
+
+/* Navigation */
+
+nav {
+
+    display: flex;
+
+    justify-content:
+        space-between;
+
+    align-items:
+        center;
+
+    padding:
+        20px 8%;
+
+    background:
+        white;
+
+    box-shadow:
+        0 2px 10px
+        rgba(0, 0, 0, 0.08);
+
+}
+
+
+.logo {
+
+    font-size:
+        22px;
+
+    font-weight:
+        bold;
+
+}
+
+
+.nav-links {
+
+    display: flex;
+
+    gap:
+        25px;
+
+}
+
+
+.nav-links a {
+
+    text-decoration:
+        none;
+
+    color:
+        #333;
+
+}
+
+
+/* Main */
+
+main {
+
+    max-width:
+        900px;
+
+    margin:
+        60px auto;
+
+    padding:
+        20px;
+
+}
+
+
+.hero {
+
+    text-align:
+        center;
+
+    margin-bottom:
+        35px;
+
+}
+
+
+.hero h1 {
+
+    font-size:
+        36px;
+
+    margin-bottom:
+        15px;
+
+}
+
+
+.hero p {
+
+    color:
+        #666;
+
+}
+
+
+/* Card */
+
+.card {
+
+    background:
+        white;
+
+    padding:
+        35px;
+
+    border-radius:
+        15px;
+
+    box-shadow:
+        0 5px 20px
+        rgba(0, 0, 0, 0.08);
+
+}
+
+
+label {
+
+    display:
+        block;
+
+    margin-bottom:
+        10px;
+
+    font-weight:
+        bold;
+
+}
+
+
+textarea {
+
+    width:
+        100%;
+
+    height:
+        150px;
+
+    padding:
+        15px;
+
+    border:
+        1px solid #ddd;
+
+    border-radius:
+        10px;
+
+    resize:
+        vertical;
+
+    font-size:
+        16px;
+
+}
+
+
+button {
+
+    margin-top:
+        20px;
+
+    padding:
+        14px 25px;
+
+    border:
+        none;
+
+    border-radius:
+        8px;
+
+    background:
+        #333;
+
+    color:
+        white;
+
+    font-size:
+        16px;
+
+    cursor:
+        pointer;
+
+}
+
+
+button:hover {
+
+    opacity:
+        0.85;
+
+}
+
+
+/* Result */
+
+.result {
+
+    margin-top:
+        30px;
+
+    padding:
+        25px;
+
+    border-radius:
+        10px;
+
+    background:
+        #f0f4ff;
+
+}
+
+
+.result h2 {
+
+    margin-bottom:
+        15px;
+
+}
+
+
+.result p {
+
+    margin:
+        10px 0;
+
+}
+
+
+/* Error */
+
+.error {
+
+    margin-top:
+        20px;
+
+    padding:
+        15px;
+
+    background:
+        #ffe5e5;
+
+    border-radius:
+        8px;
+
+}
+
+
+/* Hidden */
+
+.hidden {
+
+    display:
+        none;
+
+}

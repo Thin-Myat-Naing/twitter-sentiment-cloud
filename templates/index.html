@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Twitter Sentiment Analysis
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/style.css') }}"
+    >
+
+</head>
+
+
+<body>
+
+
+    <!-- Navigation -->
+
+    <nav>
+
+        <div class="logo">
+            Twitter Sentiment
+        </div>
+
+        <div class="nav-links">
+
+            <a href="/">
+                Analyze
+            </a>
+
+            <a href="/dashboard">
+                Dashboard
+            </a>
+
+        </div>
+
+    </nav>
+
+
+    <!-- Main Content -->
+
+    <main>
+
+        <section class="hero">
+
+            <h1>
+                Twitter Sentiment Analysis
+            </h1>
+
+            <p>
+                Enter a tweet and let the Spark ML model
+                predict its sentiment.
+            </p>
+
+        </section>
+
+
+        <section class="card">
+
+            <label for="tweet">
+                Enter Tweet
+            </label>
+
+            <textarea
+                id="tweet"
+                placeholder="Example: I really love this movie!"
+            ></textarea>
+
+
+            <button
+                id="analyzeButton"
+                onclick="analyzeTweet()"
+            >
+                Analyze Sentiment
+            </button>
+
+
+            <!-- Loading -->
+
+            <div
+                id="loading"
+                class="hidden"
+            >
+                Analyzing...
+            </div>
+
+
+            <!-- Result -->
+
+            <div
+                id="result"
+                class="result hidden"
+            >
+
+                <h2>
+                    Prediction Result
+                </h2>
+
+                <p>
+
+                    <strong>
+                        Sentiment:
+                    </strong>
+
+                    <span id="sentiment">
+                    </span>
+
+                </p>
+
+
+                <p>
+
+                    <strong>
+                        Confidence:
+                    </strong>
+
+                    <span id="confidence">
+                    </span>
+
+                </p>
+
+            </div>
+
+
+            <!-- Error -->
+
+            <div
+                id="error"
+                class="error hidden"
+            >
+            </div>
+
+        </section>
+
+    </main>
+
+
+    <script
+        src="{{ url_for('static', filename='js/app.js') }}"
+    ></script>
+
+
+</body>
+
+</html>
