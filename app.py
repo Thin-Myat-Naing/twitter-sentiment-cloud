@@ -1,87 +1,65 @@
-import os
-
 from flask import Flask, render_template, request, jsonify
-from pyspark.sql import SparkSession
-from pyspark.ml import PipelineModel
-from pyspark.ml.classification import LogisticRegressionModel
-from pyspark.sql.functions import col
+import joblib
+
 
 # ==========================================================
-# 1. CREATE FLASK APP
+# FLASK APPLICATION
 # ==========================================================
 
 app = Flask(__name__)
 
 
 # ==========================================================
-# 2. PROJECT PATH
+# MODEL PATHS
 # ==========================================================
 
-BASE_DIR = os.path.dirname(
-    os.path.abspath(__file__)
-)
+MODEL_PATH = "models/sentiment_model.pkl"
 
-PREPROCESSING_MODEL_PATH = os.path.join(
-    BASE_DIR,
-    "models",
-    "twitter_preprocessing"
-)
-
-CLASSIFICATION_MODEL_PATH = os.path.join(
-    BASE_DIR,
-    "models",
-    "twitter_logistic_regression"
-)
+VECTORIZER_PATH = "models/tfidf_vectorizer.pkl"
 
 
 # ==========================================================
-# 3. CREATE SPARK SESSION
+# LOAD MODEL
 # ==========================================================
 
-spark = SparkSession.builder \
-    .appName("TwitterSentimentWebApplication") \
-    .master("local[*]") \
-    .getOrCreate()
+print("Loading sentiment model...")
 
-spark.sparkContext.setLogLevel("ERROR")
-
-
-# ==========================================================
-# 4. LOAD TRAINED MODELS
-# ==========================================================
-
-print("Loading preprocessing model...")
-
-preprocessing_model = PipelineModel.load(
-    PREPROCESSING_MODEL_PATH
+model = joblib.load(
+    MODEL_PATH
 )
 
-print("Preprocessing model loaded.")
+print("Sentiment model loaded.")
 
 
-print("Loading classification model...")
+# ==========================================================
+# LOAD TF-IDF VECTORIZER
+# ==========================================================
 
-classification_model = LogisticRegressionModel.load(
-    CLASSIFICATION_MODEL_PATH
+print("Loading TF-IDF vectorizer...")
+
+vectorizer = joblib.load(
+    VECTORIZER_PATH
 )
 
-print("Classification model loaded.")
+print("TF-IDF vectorizer loaded.")
 
 print("All models loaded successfully!")
 
 
 # ==========================================================
-# 5. HOME PAGE
+# HOME PAGE
 # ==========================================================
 
 @app.route("/")
 def home():
 
-    return render_template("index.html")
+    return render_template(
+        "index.html"
+    )
 
 
 # ==========================================================
-# 6. PREDICTION
+# PREDICTION API
 # ==========================================================
 
 @app.route(
@@ -92,16 +70,17 @@ def predict():
 
     try:
 
-        # Get data from website
+        # Get JSON data
         data = request.get_json()
 
-        # Get tweet
+        # Get tweet text
         text = data.get(
             "text",
             ""
         ).strip()
 
-        # Check empty input
+
+        # Validate input
         if not text:
 
             return jsonify({
@@ -111,88 +90,108 @@ def predict():
 
 
         # ==================================================
-        # CREATE SPARK DATAFRAME
+        # CLEAN TEXT
         # ==================================================
 
-        input_df = spark.createDataFrame(
-            [(text,)],
-            ["text"]
+        import re
+
+        cleaned_text = text.lower()
+
+        # Remove URLs
+        cleaned_text = re.sub(
+            r"https?://\S+|www\.\S+",
+            " ",
+            cleaned_text
+        )
+
+        # Remove mentions
+        cleaned_text = re.sub(
+            r"@\w+",
+            " ",
+            cleaned_text
+        )
+
+        # Keep hashtag words
+        cleaned_text = re.sub(
+            r"#(\w+)",
+            r"\1",
+            cleaned_text
+        )
+
+        # Convert contractions
+        cleaned_text = cleaned_text.replace(
+            "can't",
+            "cannot"
+        )
+
+        cleaned_text = cleaned_text.replace(
+            "won't",
+            "will not"
+        )
+
+        cleaned_text = re.sub(
+            r"n't\b",
+            " not",
+            cleaned_text
+        )
+
+        # Remove special characters
+        cleaned_text = re.sub(
+            r"[^a-zA-Z\s]",
+            " ",
+            cleaned_text
+        )
+
+        # Remove extra spaces
+        cleaned_text = re.sub(
+            r"\s+",
+            " ",
+            cleaned_text
+        ).strip()
+
+
+        # ==================================================
+        # TF-IDF TRANSFORMATION
+        # ==================================================
+
+        features = vectorizer.transform(
+            [cleaned_text]
         )
 
 
         # ==================================================
-        # CREATE cleaned_text COLUMN
+        # PREDICTION
         # ==================================================
 
-        input_df = input_df.withColumn(
-            "cleaned_text",
-            col("text")
+        prediction = model.predict(
+            features
+        )[0]
+
+
+        # ==================================================
+        # PROBABILITY
+        # ==================================================
+
+        probabilities = model.predict_proba(
+            features
+        )[0]
+
+        confidence = max(
+            probabilities
         )
 
 
         # ==================================================
-        # PREPROCESS TEXT
+        # SENTIMENT
         # ==================================================
 
-        input_processed = (
-            preprocessing_model
-            .transform(input_df)
-        )
-
-
-        # ==================================================
-        # MAKE PREDICTION
-        # ==================================================
-
-        prediction = (
-            classification_model
-            .transform(input_processed)
-        )
+        sentiment = str(
+            prediction
+        ).capitalize()
 
 
         # ==================================================
-        # GET RESULT
-        # ==================================================
-
-        result = prediction.select(
-            "prediction",
-            "probability"
-        ).collect()[0]
-
-
-        predicted_label = int(
-            result["prediction"]
-        )
-
-
-        # ==================================================
-        # CONFIDENCE
-        # ==================================================
-
-        probabilities = result["probability"]
-
-        confidence = float(
-            max(probabilities)
-        )
-
-
-        # ==================================================
-        # SENTIMENT LABEL
-        # ==================================================
-
-        label_mapping = {
-            0: "Neutral",
-            1: "Positive",
-            2: "Negative"
-        }
-        sentiment = label_mapping.get(
-            predicted_label,
-            "Unknown"
-        )
-
-
-        # ==================================================
-        # RETURN RESULT TO WEBSITE
+        # RETURN RESULT
         # ==================================================
 
         return jsonify({
@@ -228,18 +227,13 @@ def predict():
 
 
 # ==========================================================
-# 7. START FLASK SERVER
+# RUN APPLICATION
 # ==========================================================
-
 
 if __name__ == "__main__":
 
-    port = int(
-        os.environ.get("PORT", 5000)
-    )
-
     app.run(
-        host="0.0.0.0",
-        port=port,
-        debug=False
+        debug=True,
+        host="127.0.0.1",
+        port=5000
     )
