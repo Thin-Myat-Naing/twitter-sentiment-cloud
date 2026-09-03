@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+
+    <nav>
+        <div class="logo">
+            Twitter Sentiment
+        </div>
+
+        <div class="nav-links">
+            <a href="/">Analyze</a>
+            <a href="/dashboard">Dashboard</a>
+        </div>
+    </nav>
+
+    <main>
+        <section class="hero">
+            <h1>Sentiment Analysis Dashboard</h1>
+            <p>View real-time predictions and historical classifications stored in the database.</p>
+        </section>
+
+        <section class="card table-container">
+            <h2>Prediction History</h2>
+
+            <table class="dashboard-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Tweet</th>
+                        <th>Sentiment</th>
+                        <th>Confidence</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+
+                <tbody id="historyTable">
+                    <!-- Populated dynamically via JavaScript -->
+                </tbody>
+            </table>
+        </section>
+    </main>
+
+    <script>
+        async function loadHistory() {
+            try {
+                const response = await fetch("/api/history");
+                const data = await response.json();
+                const table = document.getElementById("historyTable");
+
+                table.innerHTML = "";
+
+                if (!Array.isArray(data) || data.length === 0) {
+                    table.innerHTML = `
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: #64748b; padding: 25px;">
+                                No prediction history found.
+                            </td>
+                        </tr>`;
+                    return;
+                }
+
+                data.forEach(item => {
+                    const row = document.createElement("tr");
+
+                    // Map sentiment to styled badges
+                    const sentimentLower = (item.sentiment || "").toLowerCase();
+                    let badgeClass = "badge-neutral";
+                    let fillClass = "neutral-fill";
+
+                    if (sentimentLower === "positive") {
+                        badgeClass = "badge-positive";
+                        fillClass = "";
+                    } else if (sentimentLower === "negative") {
+                        badgeClass = "badge-negative";
+                        fillClass = "negative-fill";
+                    }
+
+                    const confidenceVal = item.confidence ? item.confidence.toFixed(1) : "0.0";
+
+                    row.innerHTML = `
+                        <td>#${item.id}</td>
+                        <td class="tweet-cell" title="${item.tweet}">${item.tweet}</td>
+                        <td><span class="badge ${badgeClass}">${item.sentiment}</span></td>
+                        <td>
+                            <div class="confidence-bar">
+                                <div class="fill ${fillClass}" style="width: ${confidenceVal}%"></div>
+                                <span>${confidenceVal}%</span>
+                            </div>
+                        </td>
+                        <td class="time-cell">${item.created_at}</td>
+                    `;
+
+                    table.appendChild(row);
+                });
+            } catch (error) {
+                console.error("Failed to load history:", error);
+            }
+        }
+
+        loadHistory();
+    </script>
+
+</body>
+</html>

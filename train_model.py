@@ -1,25 +1,18 @@
-from pyspark.sql import SparkSession
-from pyspark.sql.functions import (
-    col,
-    lower,
-    regexp_replace,
-    trim
-)
-
-from pyspark.ml import Pipeline
-from pyspark.ml.feature import (
-    StringIndexer,
-    Tokenizer,
-    StopWordsRemover,
-    CountVectorizer,
-    IDF
-)
-
-from pyspark.ml.classification import LogisticRegression
-from pyspark.ml.evaluation import MulticlassClassificationEvaluator
-
 import os
-import json
+import re
+import pandas as pd
+import joblib
+
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import (
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+    classification_report
+)
 
 
 # ==========================================================
@@ -28,97 +21,72 @@ import json
 
 DATA_PATH = "data/Tweets.csv"
 
-PREPROCESSING_MODEL_PATH = "models/twitter_preprocessing"
-CLASSIFICATION_MODEL_PATH = "models/twitter_logistic_regression"
+MODEL_DIR = "models"
 
-LABEL_MAPPING_PATH = "models/label_mapping.json"
+VECTORIZER_PATH = os.path.join(
+    MODEL_DIR,
+    "tfidf_vectorizer.pkl"
+)
 
-
-# ==========================================================
-# 2. CREATE SPARK SESSION
-# ==========================================================
-
-print("=" * 60)
-print("TWITTER SENTIMENT ANALYSIS")
-print("=" * 60)
-
-print("\nStarting Spark...")
-
-spark = SparkSession.builder \
-    .appName("TwitterSentimentTraining") \
-    .master("local[*]") \
-    .getOrCreate()
-
-spark.sparkContext.setLogLevel("ERROR")
-
-print("Spark started successfully.")
+MODEL_PATH = os.path.join(
+    MODEL_DIR,
+    "sentiment_model.pkl"
+)
 
 
 # ==========================================================
-# 3. CREATE MODEL DIRECTORY
+# 2. CREATE MODEL DIRECTORY
 # ==========================================================
 
 os.makedirs(
-    "models",
+    MODEL_DIR,
     exist_ok=True
 )
 
 
 # ==========================================================
-# 4. LOAD DATASET
+# 3. LOAD DATASET
 # ==========================================================
+
+print("=" * 60)
+print("PYTHON TWITTER SENTIMENT MODEL")
+print("=" * 60)
 
 print("\nLoading Twitter dataset...")
 
-df = spark.read.csv(
-    DATA_PATH,
-    header=True,
-    inferSchema=True
+df = pd.read_csv(
+    DATA_PATH
 )
 
 print("Dataset loaded successfully.")
 
-print("\nDataset columns:")
+print("\nColumns:")
 
-print(df.columns)
+print(
+    df.columns.tolist()
+)
 
 print("\nNumber of rows:")
 
-print(df.count())
-
-
-# ==========================================================
-# 5. CHECK COLUMNS
-# ==========================================================
-
-if "text" not in df.columns:
-
-    raise ValueError(
-        "\nERROR: 'text' column was not found.\n"
-        f"Available columns: {df.columns}"
-    )
-
-
-if "sentiment" not in df.columns:
-
-    raise ValueError(
-        "\nERROR: 'sentiment' column was not found.\n"
-        f"Available columns: {df.columns}"
-    )
-
-
-# ==========================================================
-# 6. SELECT REQUIRED COLUMNS
-# ==========================================================
-
-df = df.select(
-    "text",
-    "sentiment"
+print(
+    len(df)
 )
 
 
 # ==========================================================
-# 7. REMOVE NULL VALUES
+# 4. SELECT REQUIRED COLUMNS
+# ==========================================================
+
+df = df[
+    [
+        "text",
+        "sentiment"
+    ]
+]
+
+
+# ==========================================================
+# 5. REMOVE MISSING VALUES
 # ==========================================================
 
 print("\nRemoving missing values...")
@@ -130,474 +98,281 @@ df = df.dropna(
     ]
 )
 
-df = df.filter(
-    trim(col("text")) != ""
-)
+df = df[
+    df["text"].str.strip() != ""
+]
 
 print(
     "Rows after cleaning:",
-    df.count()
+    len(df)
 )
 
 
 # ==========================================================
-# 8. CHECK SENTIMENT DISTRIBUTION
+# 6. CHECK SENTIMENT DISTRIBUTION
 # ==========================================================
 
 print("\nSentiment distribution:")
 
-df.groupBy(
-    "sentiment"
-).count().orderBy(
-    col("count").desc()
-).show()
-
-
-# ==========================================================
-# 9. TEXT CLEANING
-# ==========================================================
-
-print("\nCleaning Twitter text...")
-
-
-# Convert to lowercase
-
-df = df.withColumn(
-    "cleaned_text",
-    lower(col("text"))
+print(
+    df["sentiment"].value_counts()
 )
 
 
-# Remove URLs
+# ==========================================================
+# 7. TEXT CLEANING FUNCTION
+# ==========================================================
 
-df = df.withColumn(
-    "cleaned_text",
-    regexp_replace(
-        col("cleaned_text"),
+def clean_text(text):
+
+    text = str(text)
+
+    # Convert to lowercase
+    text = text.lower()
+
+    # Remove URLs
+    text = re.sub(
         r"https?://\S+|www\.\S+",
-        " "
+        " ",
+        text
     )
-)
 
-
-# Remove Twitter mentions
-
-df = df.withColumn(
-    "cleaned_text",
-    regexp_replace(
-        col("cleaned_text"),
+    # Remove Twitter mentions
+    text = re.sub(
         r"@\w+",
-        " "
+        " ",
+        text
     )
-)
 
-
-# Keep hashtag word but remove # symbol
-
-df = df.withColumn(
-    "cleaned_text",
-    regexp_replace(
-        col("cleaned_text"),
+    # Keep hashtag words but remove #
+    text = re.sub(
         r"#(\w+)",
-        r"$1"
+        r"\1",
+        text
     )
-)
 
-
-# Convert contractions
-
-df = df.withColumn(
-    "cleaned_text",
-    regexp_replace(
-        col("cleaned_text"),
-        r"can't",
+    # Convert contractions
+    text = text.replace(
+        "can't",
         "cannot"
     )
-)
 
-df = df.withColumn(
-    "cleaned_text",
-    regexp_replace(
-        col("cleaned_text"),
-        r"won't",
+    text = text.replace(
+        "won't",
         "will not"
     )
-)
 
-df = df.withColumn(
-    "cleaned_text",
-    regexp_replace(
-        col("cleaned_text"),
+    text = re.sub(
         r"n't\b",
-        " not"
+        " not",
+        text
     )
-)
 
-
-# Remove special characters
-
-df = df.withColumn(
-    "cleaned_text",
-    regexp_replace(
-        col("cleaned_text"),
+    # Remove special characters
+    text = re.sub(
         r"[^a-zA-Z\s]",
-        " "
+        " ",
+        text
     )
-)
 
-
-# Remove extra spaces
-
-df = df.withColumn(
-    "cleaned_text",
-    regexp_replace(
-        col("cleaned_text"),
+    # Remove extra spaces
+    text = re.sub(
         r"\s+",
-        " "
+        " ",
+        text
     )
-)
 
-
-# Trim
-
-df = df.withColumn(
-    "cleaned_text",
-    trim(col("cleaned_text"))
-)
+    return text.strip()
 
 
 # ==========================================================
-# 10. SHOW CLEANED DATA
+# 8. CLEAN TWEETS
 # ==========================================================
+
+print("\nCleaning tweet text...")
+
+df["cleaned_text"] = df[
+    "text"
+].apply(
+    clean_text
+)
+
 
 print("\nExample cleaned tweets:")
 
-df.select(
-    "text",
-    "cleaned_text",
+print(
+    df[
+        [
+            "text",
+            "cleaned_text",
+            "sentiment"
+        ]
+    ].head(10).to_string(
+        index=False
+    )
+)
+
+
+# ==========================================================
+# 9. REMOVE EMPTY TEXT
+# ==========================================================
+
+df = df[
+    df["cleaned_text"].str.strip() != ""
+]
+
+
+# ==========================================================
+# 10. FEATURES AND TARGET
+# ==========================================================
+
+X = df[
+    "cleaned_text"
+]
+
+y = df[
     "sentiment"
-).show(
-    10,
-    truncate=False
-)
+]
 
 
 # ==========================================================
-# 11. ENCODE SENTIMENT
-# ==========================================================
-
-print("\nEncoding sentiment labels...")
-
-label_indexer = StringIndexer(
-    inputCol="sentiment",
-    outputCol="label",
-    handleInvalid="keep"
-)
-
-label_model = label_indexer.fit(df)
-
-df = label_model.transform(df)
-
-
-# ==========================================================
-# 12. DISPLAY LABEL MAPPING
-# ==========================================================
-
-print("\nSentiment label mapping:")
-
-labels = label_model.labels
-
-label_mapping = {}
-
-for index, label in enumerate(labels):
-
-    label_mapping[index] = label
-
-    print(
-        f"{index} -> {label}"
-    )
-
-
-# ==========================================================
-# 13. SAVE LABEL MAPPING
-# ==========================================================
-
-with open(
-    LABEL_MAPPING_PATH,
-    "w"
-) as file:
-
-    json.dump(
-        label_mapping,
-        file,
-        indent=4
-    )
-
-print(
-    "\nLabel mapping saved:"
-)
-
-print(
-    LABEL_MAPPING_PATH
-)
-
-
-# ==========================================================
-# 14. SPLIT DATASET
+# 11. TRAIN / TEST SPLIT
 # ==========================================================
 
 print("\nSplitting dataset...")
 
-train_df, test_df = df.randomSplit(
-    [0.8, 0.2],
-    seed=42
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y,
+    test_size=0.20,
+    random_state=42,
+    stratify=y
 )
 
 print(
-    "Training rows:",
-    train_df.count()
+    "Training samples:",
+    len(X_train)
 )
 
 print(
-    "Testing rows:",
-    test_df.count()
+    "Testing samples:",
+    len(X_test)
 )
 
 
 # ==========================================================
-# 15. TOKENIZATION
+# 12. TF-IDF VECTORIZER
 # ==========================================================
 
-tokenizer = Tokenizer(
-    inputCol="cleaned_text",
-    outputCol="words"
+print("\nCreating TF-IDF vectorizer...")
+
+vectorizer = TfidfVectorizer(
+    max_features=30000,
+    ngram_range=(1, 2),
+    min_df=2,
+    sublinear_tf=True
 )
 
 
 # ==========================================================
-# 16. STOP WORD REMOVAL
+# 13. FIT TF-IDF
 # ==========================================================
 
-stop_words = StopWordsRemover(
-    inputCol="words",
-    outputCol="filtered_words"
+print("Training TF-IDF...")
+
+X_train_tfidf = vectorizer.fit_transform(
+    X_train
 )
 
-
-# ==========================================================
-# 17. COUNT VECTORIZER
-# ==========================================================
-
-count_vectorizer = CountVectorizer(
-    inputCol="filtered_words",
-    outputCol="raw_features",
-    vocabSize=20000,
-    minDF=2.0
+X_test_tfidf = vectorizer.transform(
+    X_test
 )
 
-
-# ==========================================================
-# 18. IDF
-# ==========================================================
-
-idf = IDF(
-    inputCol="raw_features",
-    outputCol="features"
-)
-
-
-# ==========================================================
-# 19. PREPROCESSING PIPELINE
-# ==========================================================
-
-preprocessing_pipeline = Pipeline(
-    stages=[
-        tokenizer,
-        stop_words,
-        count_vectorizer,
-        idf
-    ]
-)
-
-
-# ==========================================================
-# 20. TRAIN PREPROCESSING PIPELINE
-# ==========================================================
 
 print(
-    "\nTraining preprocessing pipeline..."
-)
-
-preprocessing_model = preprocessing_pipeline.fit(
-    train_df
+    "Training feature shape:",
+    X_train_tfidf.shape
 )
 
 print(
-    "Preprocessing pipeline trained successfully."
+    "Testing feature shape:",
+    X_test_tfidf.shape
 )
 
 
 # ==========================================================
-# 21. SAVE PREPROCESSING MODEL
+# 14. LOGISTIC REGRESSION
 # ==========================================================
+
+print("\nTraining Logistic Regression...")
+
+model = LogisticRegression(
+    max_iter=500,
+    C=2.0,
+    class_weight="balanced"
+)
+
+
+model.fit(
+    X_train_tfidf,
+    y_train
+)
+
 
 print(
-    "\nSaving preprocessing model..."
-)
-
-preprocessing_model.write().overwrite().save(
-    PREPROCESSING_MODEL_PATH
-)
-
-print(
-    "Preprocessing model saved:"
-)
-
-print(
-    PREPROCESSING_MODEL_PATH
+    "Model training completed."
 )
 
 
 # ==========================================================
-# 22. TRANSFORM DATA
+# 15. PREDICTIONS
 # ==========================================================
 
-print(
-    "\nCreating TF-IDF features..."
-)
+print("\nGenerating predictions...")
 
-train_features = preprocessing_model.transform(
-    train_df
-)
-
-test_features = preprocessing_model.transform(
-    test_df
+y_pred = model.predict(
+    X_test_tfidf
 )
 
 
 # ==========================================================
-# 23. LOGISTIC REGRESSION
+# 16. EVALUATION
 # ==========================================================
 
-print(
-    "\nCreating Logistic Regression..."
+accuracy = accuracy_score(
+    y_test,
+    y_pred
 )
 
-logistic_regression = LogisticRegression(
-    featuresCol="features",
-    labelCol="label",
-    maxIter=200,
-    regParam=0.05,
-    elasticNetParam=0.0
+precision = precision_score(
+    y_test,
+    y_pred,
+    average="weighted",
+    zero_division=0
 )
 
-
-# ==========================================================
-# 24. TRAIN CLASSIFIER
-# ==========================================================
-
-print(
-    "Training Logistic Regression..."
+recall = recall_score(
+    y_test,
+    y_pred,
+    average="weighted",
+    zero_division=0
 )
 
-classification_model = logistic_regression.fit(
-    train_features
-)
-
-print(
-    "Logistic Regression training completed."
+f1 = f1_score(
+    y_test,
+    y_pred,
+    average="weighted",
+    zero_division=0
 )
 
 
 # ==========================================================
-# 25. SAVE CLASSIFICATION MODEL
-# ==========================================================
-
-print(
-    "\nSaving classification model..."
-)
-
-classification_model.write().overwrite().save(
-    CLASSIFICATION_MODEL_PATH
-)
-
-print(
-    "Classification model saved:"
-)
-
-print(
-    CLASSIFICATION_MODEL_PATH
-)
-
-
-# ==========================================================
-# 26. PREDICTIONS
-# ==========================================================
-
-print(
-    "\nGenerating predictions..."
-)
-
-predictions = classification_model.transform(
-    test_features
-)
-
-
-# ==========================================================
-# 27. EVALUATION
-# ==========================================================
-
-accuracy_evaluator = MulticlassClassificationEvaluator(
-    labelCol="label",
-    predictionCol="prediction",
-    metricName="accuracy"
-)
-
-accuracy = accuracy_evaluator.evaluate(
-    predictions
-)
-
-
-precision_evaluator = MulticlassClassificationEvaluator(
-    labelCol="label",
-    predictionCol="prediction",
-    metricName="weightedPrecision"
-)
-
-precision = precision_evaluator.evaluate(
-    predictions
-)
-
-
-recall_evaluator = MulticlassClassificationEvaluator(
-    labelCol="label",
-    predictionCol="prediction",
-    metricName="weightedRecall"
-)
-
-recall = recall_evaluator.evaluate(
-    predictions
-)
-
-
-f1_evaluator = MulticlassClassificationEvaluator(
-    labelCol="label",
-    predictionCol="prediction",
-    metricName="f1"
-)
-
-f1_score = f1_evaluator.evaluate(
-    predictions
-)
-
-
-# ==========================================================
-# 28. DISPLAY RESULTS
+# 17. DISPLAY RESULTS
 # ==========================================================
 
 print("\n")
 print("=" * 60)
-print("IMPROVED MODEL EVALUATION RESULTS")
+print("PYTHON MODEL EVALUATION RESULTS")
 print("=" * 60)
 
 print(
@@ -613,31 +388,74 @@ print(
 )
 
 print(
-    f"F1 Score : {f1_score * 100:.2f}%"
+    f"F1 Score : {f1 * 100:.2f}%"
 )
 
 print("=" * 60)
 
 
 # ==========================================================
-# 29. SAMPLE PREDICTIONS
+# 18. CLASSIFICATION REPORT
 # ==========================================================
 
-print("\nSample predictions:")
+print("\nClassification Report:")
 
-predictions.select(
-    "text",
-    "sentiment",
-    "label",
-    "prediction"
-).show(
-    10,
-    truncate=False
+print(
+    classification_report(
+        y_test,
+        y_pred,
+        zero_division=0
+    )
 )
 
 
 # ==========================================================
-# 30. FINISH
+# 19. SAVE TF-IDF VECTORIZER
+# ==========================================================
+
+print("\nSaving TF-IDF vectorizer...")
+
+joblib.dump(
+    vectorizer,
+    VECTORIZER_PATH
+)
+
+print(
+    "Saved:",
+    VECTORIZER_PATH
+)
+
+
+# ==========================================================
+# 20. SAVE MODEL
+# ==========================================================
+
+print("\nSaving sentiment model...")
+
+joblib.dump(
+    model,
+    MODEL_PATH
+)
+
+print(
+    "Saved:",
+    MODEL_PATH
+)
+
+
+# ==========================================================
+# 21. SHOW MODEL LABELS
+# ==========================================================
+
+print("\nModel sentiment classes:")
+
+print(
+    model.classes_
+)
+
+
+# ==========================================================
+# 22. FINISHED
 # ==========================================================
 
 print("\n")
@@ -645,28 +463,14 @@ print("=" * 60)
 print("TRAINING COMPLETED SUCCESSFULLY!")
 print("=" * 60)
 
-print("\nSaved models:")
+print("\nFiles created:")
 
 print(
-    "1.",
-    PREPROCESSING_MODEL_PATH
+    MODEL_PATH
 )
 
 print(
-    "2.",
-    CLASSIFICATION_MODEL_PATH
-)
-
-print(
-    "3.",
-    LABEL_MAPPING_PATH
+    VECTORIZER_PATH
 )
 
 print("\nYou can now run app.py.")
-
-
-# ==========================================================
-# 31. STOP SPARK
-# ==========================================================
-
-spark.stop()
