@@ -1,4 +1,7 @@
 Flask
 gunicorn
-pyspark
+joblib
+scikit-learn
+pandas
+numpy
 psycopg2-binary
