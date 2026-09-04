@@ -5,3 +5,4 @@ scikit-learn
 pandas
 numpy
 psycopg2-binary
+mysql-connector-python
