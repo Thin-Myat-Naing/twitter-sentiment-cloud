@@ -1,75 +1,38 @@
-import mysql.connector
+import os
+import psycopg2
 
 
 def setup_database():
+    database_url = os.environ.get("DATABASE_URL")
 
-    # ==========================================================
-    # 1. Connect to MySQL without selecting a database
-    # ==========================================================
+    if not database_url:
+        print("DATABASE_URL is not set.")
+        return
 
-    mydb = mysql.connector.connect(
-        host="localhost",
-        user="root",
-        password="root"
-    )
+    try:
+        conn = psycopg2.connect(database_url)
+        cursor = conn.cursor()
 
-    mycursor = mydb.cursor()
+        create_table_query = """
+        CREATE TABLE IF NOT EXISTS predictions (
+            id SERIAL PRIMARY KEY,
+            tweet_text TEXT NOT NULL,
+            sentiment VARCHAR(20) NOT NULL,
+            confidence DECIMAL(5,2),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
 
-    # Database name
-    db_name = "`Cloud-Twitter Sentiment`"
+        cursor.execute(create_table_query)
+        conn.commit()
 
-    # Create database if it does not exist
-    mycursor.execute(
-        f"CREATE DATABASE IF NOT EXISTS {db_name}"
-    )
+        print("PostgreSQL table 'predictions' created successfully!")
 
-    print("Database created or verified successfully!")
+        cursor.close()
+        conn.close()
 
-    mycursor.close()
-    mydb.close()
-
-
-    # ==========================================================
-    # 2. Connect to the database
-    # ==========================================================
-
-    mydb = mysql.connector.connect(
-        host="localhost",
-        user="root",
-        password="root",
-        database="Cloud-Twitter Sentiment"
-    )
-
-    mycursor = mydb.cursor()
-
-
-    # ==========================================================
-    # 3. Create predictions table
-    # ==========================================================
-
-    create_table_query = """
-    CREATE TABLE IF NOT EXISTS predictions (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        tweet_text TEXT NOT NULL,
-        sentiment VARCHAR(20) NOT NULL,
-        confidence DECIMAL(5,2),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-    """
-
-    mycursor.execute(create_table_query)
-
-    mydb.commit()
-
-    print("Table 'predictions' created successfully!")
-
-
-    # ==========================================================
-    # 4. Close connection
-    # ==========================================================
-
-    mycursor.close()
-    mydb.close()
+    except Exception as e:
+        print("Database setup error:", e)
 
 
 if __name__ == "__main__":

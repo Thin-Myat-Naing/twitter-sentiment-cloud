@@ -2,8 +2,7 @@ import os
 import re
 from flask import Flask, jsonify, render_template, request
 import joblib
-import mysql.connector
-
+import psycopg2
 # ==========================================================
 # FLASK APPLICATION
 # ==========================================================
@@ -15,21 +14,11 @@ app = Flask(__name__)
 # DATABASE (MySQL Setup)
 # ==========================================================
 
-DB_HOST = os.environ.get("DB_HOST", "localhost")
-DB_USER = os.environ.get("DB_USER", "root")
-DB_PASSWORD = os.environ.get("DB_PASSWORD", "root")
-DB_NAME = os.environ.get("DB_NAME", "Cloud-Twitter Sentiment")
-DB_PORT = int(os.environ.get("DB_PORT", 3306))
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 
 def get_db_connection():
-    return mysql.connector.connect(
-        host=DB_HOST,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        database=DB_NAME,
-        port=DB_PORT,
-    )
+    return psycopg2.connect(DATABASE_URL)
 # ==========================================================
 # PAGE ROUTES
 # ==========================================================
