@@ -6,33 +6,32 @@ def get_db_connection():
     database_url = os.environ.get("DATABASE_URL")
 
     if not database_url:
-        print("DATABASE_URL is not set.")
-        return
+        raise Exception("DATABASE_URL is not set.")
 
-    try:
-        conn = psycopg2.connect(database_url)
-        cursor = conn.cursor()
+    return psycopg2.connect(database_url)
 
-        create_table_query = """
-        CREATE TABLE IF NOT EXISTS predictions (
-            id SERIAL PRIMARY KEY,
-            tweet_text TEXT NOT NULL,
-            sentiment VARCHAR(20) NOT NULL,
-            confidence DECIMAL(5,2),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-        """
 
-        cursor.execute(create_table_query)
-        conn.commit()
+def setup_database():
+    conn = get_db_connection()
+    cursor = conn.cursor()
 
-        print("PostgreSQL table 'predictions' created successfully!")
+    create_table_query = """
+    CREATE TABLE IF NOT EXISTS predictions (
+        id SERIAL PRIMARY KEY,
+        tweet_text TEXT NOT NULL,
+        sentiment VARCHAR(20) NOT NULL,
+        confidence DECIMAL(5,2),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """
 
-        cursor.close()
-        conn.close()
+    cursor.execute(create_table_query)
+    conn.commit()
 
-    except Exception as e:
-        print("Database setup error:", e)
+    cursor.close()
+    conn.close()
+
+    print("PostgreSQL table 'predictions' created successfully!")
 
 
 if __name__ == "__main__":

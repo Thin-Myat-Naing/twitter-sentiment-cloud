@@ -13,12 +13,13 @@ app = Flask(__name__)
 # ==========================================================
 # DATABASE (MySQL Setup)
 # ==========================================================
-
-DATABASE_URL = os.environ.get("DATABASE_URL")
-
-
 def get_db_connection():
-    return psycopg2.connect(DATABASE_URL)
+    database_url = os.environ.get("DATABASE_URL")
+
+    if not database_url:
+        raise Exception("DATABASE_URL is not set.")
+
+    return psycopg2.connect(database_url)
 # ==========================================================
 # PAGE ROUTES
 # ==========================================================
