@@ -2,19 +2,18 @@ import os
 import re
 from flask import Flask, jsonify, render_template, request
 import joblib
-from db import get_db_connection, setup_database
+from db.db import get_db_connection, setup_database
+
 # ==========================================================
 # FLASK APPLICATION
 # ==========================================================
 
 app = Flask(__name__)
 
-# Create PostgreSQL table when the application starts
 try:
     setup_database()
 except Exception as e:
     print("Database setup failed:", e)
-
 
 # ==========================================================
 # PAGE ROUTES
