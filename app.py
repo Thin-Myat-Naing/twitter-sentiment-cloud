@@ -2,24 +2,20 @@ import os
 import re
 from flask import Flask, jsonify, render_template, request
 import joblib
-import psycopg2
+from db import get_db_connection, setup_database
 # ==========================================================
 # FLASK APPLICATION
 # ==========================================================
 
 app = Flask(__name__)
 
+# Create PostgreSQL table when the application starts
+try:
+    setup_database()
+except Exception as e:
+    print("Database setup failed:", e)
 
-# ==========================================================
-# DATABASE (MySQL Setup)
-# ==========================================================
-def get_db_connection():
-    database_url = os.environ.get("DATABASE_URL")
 
-    if not database_url:
-        raise Exception("DATABASE_URL is not set.")
-
-    return psycopg2.connect(database_url)
 # ==========================================================
 # PAGE ROUTES
 # ==========================================================
