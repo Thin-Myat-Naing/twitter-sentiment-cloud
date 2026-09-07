@@ -73,9 +73,9 @@ def predict():
         probabilities = model.predict_proba(features)[0]
 
         sentiment = str(prediction).capitalize()
-        confidence_percentage = round(max(probabilities) * 100, 2)
+        confidence_percentage = float(round(float(max(probabilities)) * 100, 2))
 
-        # MySQL Insertion
+        # PostgreSQL Insertion
         conn = get_db_connection()
         cur = conn.cursor()
 
