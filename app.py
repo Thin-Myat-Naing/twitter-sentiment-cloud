@@ -2,8 +2,10 @@ import os
 import re
 from datetime import timezone, timedelta
 
-from flask import Flask, jsonify, render_template, request
 import joblib
+import pandas as pd
+
+from flask import Flask, jsonify, render_template, request
 
 from db.db import get_db_connection, setup_database
 
@@ -21,6 +23,7 @@ app = Flask(__name__)
 
 try:
     setup_database()
+    print("Database setup completed successfully.")
 except Exception as e:
     print("Database setup failed:", e)
 
@@ -40,7 +43,7 @@ def dashboard():
 
 
 # ==========================================================
-# MODEL PATHS & LOADING
+# MODEL PATHS
 # ==========================================================
 
 MODEL_PATH = "models/sentiment_model.pkl"
@@ -48,45 +51,208 @@ VECTORIZER_PATH = "models/tfidf_vectorizer.pkl"
 
 print("Loading sentiment model and vectorizer...")
 
-model = joblib.load(MODEL_PATH)
-vectorizer = joblib.load(VECTORIZER_PATH)
+try:
 
-print("All models loaded successfully!")
+    model = joblib.load(MODEL_PATH)
+
+    vectorizer = joblib.load(VECTORIZER_PATH)
+
+    print("All models loaded successfully!")
+
+except Exception as e:
+
+    print("Model loading failed:", e)
+
+    model = None
+    vectorizer = None
+
+
+# ==========================================================
+# KAGGLE DATASET
+# ==========================================================
+
+DATASET_PATH = "tweet.csv"
+
+print("Loading Kaggle Twitter dataset...")
+
+try:
+
+    kaggle_df = pd.read_csv(DATASET_PATH)
+
+    print(
+        f"Kaggle dataset loaded successfully: "
+        f"{len(kaggle_df)} rows"
+    )
+
+    print(
+        "Dataset columns:",
+        list(kaggle_df.columns)
+    )
+
+    # ------------------------------------------------------
+    # Keep only the columns needed for analytics
+    # ------------------------------------------------------
+
+    required_columns = [
+        "textID",
+        "text",
+        "selected_text",
+        "sentiment"
+    ]
+
+    missing_columns = [
+        column
+        for column in required_columns
+        if column not in kaggle_df.columns
+    ]
+
+    if missing_columns:
+
+        print(
+            "Missing dataset columns:",
+            missing_columns
+        )
+
+        kaggle_df = pd.DataFrame()
+
+    else:
+
+        # --------------------------------------------------
+        # Remove rows without sentiment
+        # --------------------------------------------------
+
+        kaggle_df = kaggle_df.dropna(
+            subset=["sentiment"]
+        )
+
+        # --------------------------------------------------
+        # Remove rows without text
+        # --------------------------------------------------
+
+        kaggle_df = kaggle_df.dropna(
+            subset=["text"]
+        )
+
+        # --------------------------------------------------
+        # Remove duplicate tweets
+        # --------------------------------------------------
+
+        kaggle_df = kaggle_df.drop_duplicates(
+            subset=["textID"]
+        )
+
+        # --------------------------------------------------
+        # Clean sentiment values
+        # --------------------------------------------------
+
+        kaggle_df["sentiment"] = (
+            kaggle_df["sentiment"]
+            .astype(str)
+            .str.strip()
+            .str.lower()
+        )
+
+        # --------------------------------------------------
+        # Calculate tweet length
+        # --------------------------------------------------
+
+        kaggle_df["tweet_length"] = (
+            kaggle_df["text"]
+            .astype(str)
+            .str.len()
+        )
+
+        print(
+            "Kaggle dataset preprocessing completed."
+        )
+
+except Exception as e:
+
+    print(
+        "Kaggle dataset loading failed:",
+        e
+    )
+
+    kaggle_df = pd.DataFrame()
 
 
 # ==========================================================
 # MYANMAR TIMEZONE
 # ==========================================================
 
-MYANMAR_TZ = timezone(timedelta(hours=6, minutes=30))
+MYANMAR_TZ = timezone(
+    timedelta(
+        hours=6,
+        minutes=30
+    )
+)
 
 
 # ==========================================================
 # PREDICTION API
 # ==========================================================
 
-@app.route("/predict", methods=["POST"])
+@app.route(
+    "/predict",
+    methods=["POST"]
+)
 def predict():
 
     conn = None
     cur = None
 
     try:
+
+        # ==================================================
+        # REQUEST DATA
+        # ==================================================
+
         data = request.get_json()
 
         if not data:
+
             return jsonify({
+
                 "success": False,
-                "error": "Invalid request."
+
+                "error":
+                    "Invalid request."
+
             }), 400
 
-        text = data.get("text", "").strip()
+
+        text = data.get(
+            "text",
+            ""
+        ).strip()
+
 
         if not text:
+
             return jsonify({
+
                 "success": False,
-                "error": "Please enter a tweet."
+
+                "error":
+                    "Please enter a tweet."
+
             }), 400
+
+
+        # ==================================================
+        # CHECK MODEL
+        # ==================================================
+
+        if model is None or vectorizer is None:
+
+            return jsonify({
+
+                "success": False,
+
+                "error":
+                    "Sentiment model is not available."
+
+            }), 500
 
 
         # ==================================================
@@ -95,11 +261,17 @@ def predict():
 
         cleaned_text = text.lower()
 
+
+        # Remove URLs
+
         cleaned_text = re.sub(
             r"https?://\S+|www\.\S+",
             " ",
             cleaned_text
         )
+
+
+        # Remove mentions
 
         cleaned_text = re.sub(
             r"@\w+",
@@ -107,17 +279,30 @@ def predict():
             cleaned_text
         )
 
+
+        # Keep hashtag word
+
         cleaned_text = re.sub(
             r"#(\w+)",
             r"\1",
             cleaned_text
         )
 
+
+        # Expand common contractions
+
         cleaned_text = (
             cleaned_text
-            .replace("can't", "cannot")
-            .replace("won't", "will not")
+            .replace(
+                "can't",
+                "cannot"
+            )
+            .replace(
+                "won't",
+                "will not"
+            )
         )
+
 
         cleaned_text = re.sub(
             r"n't\b",
@@ -125,11 +310,17 @@ def predict():
             cleaned_text
         )
 
+
+        # Keep English letters and spaces
+
         cleaned_text = re.sub(
             r"[^a-zA-Z\s]",
             " ",
             cleaned_text
         )
+
+
+        # Remove extra spaces
 
         cleaned_text = re.sub(
             r"\s+",
@@ -142,32 +333,64 @@ def predict():
         # MODEL INFERENCE
         # ==================================================
 
-        features = vectorizer.transform([cleaned_text])
+        features = vectorizer.transform(
+            [cleaned_text]
+        )
 
-        prediction = model.predict(features)[0]
 
-        probabilities = model.predict_proba(features)[0]
+        prediction = model.predict(
+            features
+        )[0]
 
-        sentiment = str(prediction).capitalize()
 
-        # Convert NumPy float64 to normal Python float
+        probabilities = model.predict_proba(
+            features
+        )[0]
+
+
+        sentiment = str(
+            prediction
+        ).capitalize()
+
+
+        # ==================================================
+        # CONFIDENCE
+        # ==================================================
+
         confidence_percentage = float(
-            round(float(max(probabilities)) * 100, 2)
+            round(
+                float(
+                    max(probabilities)
+                ) * 100,
+                2
+            )
         )
 
 
         # ==================================================
-        # POSTGRESQL INSERTION
+        # SAVE PREDICTION TO POSTGRESQL
         # ==================================================
 
         conn = get_db_connection()
+
         cur = conn.cursor()
+
 
         insert_query = """
             INSERT INTO predictions
-            (tweet_text, sentiment, confidence)
-            VALUES (%s, %s, %s)
+            (
+                tweet_text,
+                sentiment,
+                confidence
+            )
+            VALUES
+            (
+                %s,
+                %s,
+                %s
+            )
         """
+
 
         cur.execute(
             insert_query,
@@ -178,6 +401,7 @@ def predict():
             )
         )
 
+
         conn.commit()
 
 
@@ -186,32 +410,50 @@ def predict():
         # ==================================================
 
         return jsonify({
+
             "success": True,
+
             "text": text,
+
             "sentiment": sentiment,
-            "confidence": confidence_percentage
+
+            "confidence":
+                confidence_percentage
+
         })
 
 
     except Exception as e:
 
         if conn:
+
             conn.rollback()
 
-        print("Prediction error:", e)
+
+        print(
+            "Prediction error:",
+            e
+        )
+
 
         return jsonify({
+
             "success": False,
+
             "error": str(e)
+
         }), 500
 
 
     finally:
 
         if cur:
+
             cur.close()
 
+
         if conn:
+
             conn.close()
 
 
@@ -228,7 +470,9 @@ def history():
     try:
 
         conn = get_db_connection()
+
         cur = conn.cursor()
+
 
         cur.execute(
             """
@@ -244,7 +488,9 @@ def history():
             """
         )
 
+
         rows = cur.fetchall()
+
 
         history_data = []
 
@@ -257,23 +503,25 @@ def history():
 
             created_at = row[4]
 
+
             if created_at:
 
-                # If PostgreSQL returns a timezone-naive datetime,
-                # assume it is UTC (Render/PostgreSQL commonly uses UTC).
                 if created_at.tzinfo is None:
 
                     created_at = created_at.replace(
                         tzinfo=timezone.utc
                     )
 
-                # Convert UTC to Myanmar Time (UTC+6:30)
+
                 created_at = created_at.astimezone(
                     MYANMAR_TZ
                 )
 
-                created_at_string = created_at.strftime(
-                    "%Y-%m-%d %H:%M:%S"
+
+                created_at_string = (
+                    created_at.strftime(
+                        "%Y-%m-%d %H:%M:%S"
+                    )
                 )
 
             else:
@@ -296,146 +544,199 @@ def history():
 
                 "created_at":
                     created_at_string
+
             })
 
 
-        return jsonify(history_data)
+        return jsonify(
+            history_data
+        )
 
 
     except Exception as e:
 
-        print("History error:", e)
+        print(
+            "History error:",
+            e
+        )
+
 
         return jsonify({
+
             "success": False,
+
             "error": str(e)
+
         }), 500
 
 
     finally:
 
         if cur:
+
             cur.close()
 
+
         if conn:
+
             conn.close()
 
+
 # ==========================================================
-# ANALYTICS API
+# KAGGLE DATASET ANALYTICS API
 # ==========================================================
 
 @app.route("/api/analytics")
 def analytics():
 
-    conn = None
-    cur = None
-
     try:
 
-        conn = get_db_connection()
-        cur = conn.cursor()
-
         # ==================================================
-        # TOTAL PREDICTIONS
+        # CHECK DATASET
         # ==================================================
 
-        cur.execute("""
-            SELECT COUNT(*)
-            FROM predictions
-        """)
+        if kaggle_df.empty:
 
-        total = cur.fetchone()[0]
+            return jsonify({
+
+                "success": False,
+
+                "error":
+                    "Kaggle dataset is not available."
+
+            }), 500
+
+
+        # ==================================================
+        # TOTAL TWEETS
+        # ==================================================
+
+        total_tweets = int(
+            len(kaggle_df)
+        )
 
 
         # ==================================================
         # SENTIMENT COUNTS
         # ==================================================
 
-        cur.execute("""
-            SELECT
-                LOWER(sentiment) AS sentiment,
-                COUNT(*) AS count
-            FROM predictions
-            GROUP BY LOWER(sentiment)
-        """)
-
-        rows = cur.fetchall()
+        sentiment_counts = (
+            kaggle_df["sentiment"]
+            .value_counts()
+        )
 
 
-        positive = 0
-        negative = 0
-        neutral = 0
+        positive = int(
+            sentiment_counts.get(
+                "positive",
+                0
+            )
+        )
 
 
-        for sentiment, count in rows:
+        negative = int(
+            sentiment_counts.get(
+                "negative",
+                0
+            )
+        )
 
-            if sentiment == "positive":
-                positive = count
 
-            elif sentiment == "negative":
-                negative = count
-
-            elif sentiment == "neutral":
-                neutral = count
+        neutral = int(
+            sentiment_counts.get(
+                "neutral",
+                0
+            )
+        )
 
 
         # ==================================================
-        # PERCENTAGES
+        # SENTIMENT PERCENTAGES
         # ==================================================
 
-        if total > 0:
+        if total_tweets > 0:
 
             positive_percentage = round(
-                (positive / total) * 100, 2
+                positive /
+                total_tweets *
+                100,
+                2
             )
 
             negative_percentage = round(
-                (negative / total) * 100, 2
+                negative /
+                total_tweets *
+                100,
+                2
             )
 
             neutral_percentage = round(
-                (neutral / total) * 100, 2
+                neutral /
+                total_tweets *
+                100,
+                2
             )
 
         else:
 
             positive_percentage = 0
+
             negative_percentage = 0
+
             neutral_percentage = 0
 
 
         # ==================================================
-        # AVERAGE CONFIDENCE
+        # AVERAGE TWEET LENGTH
         # ==================================================
 
-        cur.execute("""
-            SELECT AVG(confidence)
-            FROM predictions
-        """)
-
-        average_confidence = cur.fetchone()[0]
-
-        if average_confidence is not None:
-            average_confidence = round(
-                float(average_confidence), 2
-            )
-        else:
-            average_confidence = 0
+        average_tweet_length = round(
+            float(
+                kaggle_df[
+                    "tweet_length"
+                ].mean()
+            ),
+            2
+        )
 
 
         # ==================================================
-        # RESPONSE
+        # AVERAGE LENGTH BY SENTIMENT
+        # ==================================================
+
+        length_by_sentiment = (
+            kaggle_df
+            .groupby("sentiment")[
+                "tweet_length"
+            ]
+            .mean()
+            .round(2)
+            .to_dict()
+        )
+
+
+        # ==================================================
+        # RETURN ANALYTICS
         # ==================================================
 
         return jsonify({
 
             "success": True,
 
-            "total": total,
+            "data_source":
+                "Kaggle Twitter Sentiment Dataset",
 
-            "positive": positive,
-            "negative": negative,
-            "neutral": neutral,
+            "total_tweets":
+                total_tweets,
+
+            "positive":
+                positive,
+
+            "negative":
+                negative,
+
+            "neutral":
+                neutral,
 
             "positive_percentage":
                 positive_percentage,
@@ -446,14 +747,43 @@ def analytics():
             "neutral_percentage":
                 neutral_percentage,
 
-            "average_confidence":
-                average_confidence
+            "average_tweet_length":
+                average_tweet_length,
+
+            "average_length_positive":
+                float(
+                    length_by_sentiment.get(
+                        "positive",
+                        0
+                    )
+                ),
+
+            "average_length_negative":
+                float(
+                    length_by_sentiment.get(
+                        "negative",
+                        0
+                    )
+                ),
+
+            "average_length_neutral":
+                float(
+                    length_by_sentiment.get(
+                        "neutral",
+                        0
+                    )
+                )
+
         })
 
 
     except Exception as e:
 
-        print("Analytics error:", e)
+        print(
+            "Analytics error:",
+            e
+        )
+
 
         return jsonify({
 
@@ -464,13 +794,28 @@ def analytics():
         }), 500
 
 
-    finally:
+# ==========================================================
+# MODEL PERFORMANCE API
+# ==========================================================
 
-        if cur:
-            cur.close()
+@app.route("/api/model-performance")
+def model_performance():
 
-        if conn:
-            conn.close()
+    return jsonify({
+
+        "success": True,
+
+        "accuracy": 68.12,
+
+        "precision": 68.20,
+
+        "recall": 68.12,
+
+        "f1_score": 68.15
+
+    })
+
+
 # ==========================================================
 # RUN APPLICATION
 # ==========================================================
@@ -478,11 +823,19 @@ def analytics():
 if __name__ == "__main__":
 
     port = int(
-        os.environ.get("PORT", 5000)
+        os.environ.get(
+            "PORT",
+            5000
+        )
     )
 
+
     app.run(
+
         host="0.0.0.0",
+
         port=port,
+
         debug=False
+
     )

@@ -4,383 +4,1083 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+    <title>Sentiment Analysis Dashboard</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
+
 <body>
 
+    <!-- =====================================================
+         NAVIGATION
+    ====================================================== -->
+
     <nav>
+
         <div class="logo">
             Twitter Sentiment
         </div>
 
         <div class="nav-links">
-            <a href="/">Analyze</a>
-            <a href="/dashboard">Dashboard</a>
+
+            <a href="/">
+                Analyze
+            </a>
+
+            <a href="/dashboard">
+                Dashboard
+            </a>
+
         </div>
+
     </nav>
 
+
+    <!-- =====================================================
+         MAIN CONTENT
+    ====================================================== -->
+
     <main>
+
+
+        <!-- =================================================
+             HERO SECTION
+        ================================================== -->
+
         <section class="hero">
-            <h1>Sentiment Analysis Dashboard</h1>
-            <p>View real-time predictions and historical classifications stored in the database.</p>
+
+            <h1>
+                Sentiment Analysis Dashboard
+            </h1>
+
+            <p>
+                Explore Twitter sentiment analytics from the
+                Kaggle dataset and evaluate the performance of
+                the sentiment classification model.
+            </p>
+
         </section>
+
+
+
+        <!-- =================================================
+             KAGGLE DATASET ANALYTICS
+        ================================================== -->
+
+        <section class="analytics-section">
+
+            <h2>
+                Kaggle Dataset Analytics
+            </h2>
+
+            <p class="analytics-description">
+                Statistical analysis of the Twitter Sentiment
+                Extraction dataset used for model development.
+            </p>
+
+
+            <!-- =============================================
+                 SUMMARY CARDS
+            ============================================== -->
+
+            <div class="analytics-cards">
+
+
+                <!-- Total Tweets -->
+
+                <div class="analytics-card">
+
+                    <h3>
+                        Total Tweets
+                    </h3>
+
+                    <p id="totalPredictions">
+                        0
+                    </p>
+
+                    <span>
+                        Kaggle Dataset
+                    </span>
+
+                </div>
+
+
+                <!-- Positive -->
+
+                <div class="analytics-card">
+
+                    <h3>
+                        Positive
+                    </h3>
+
+                    <p id="positiveCount">
+                        0
+                    </p>
+
+                    <span id="positivePercentage">
+                        0%
+                    </span>
+
+                </div>
+
+
+                <!-- Negative -->
+
+                <div class="analytics-card">
+
+                    <h3>
+                        Negative
+                    </h3>
+
+                    <p id="negativeCount">
+                        0
+                    </p>
+
+                    <span id="negativePercentage">
+                        0%
+                    </span>
+
+                </div>
+
+
+                <!-- Neutral -->
+
+                <div class="analytics-card">
+
+                    <h3>
+                        Neutral
+                    </h3>
+
+                    <p id="neutralCount">
+                        0
+                    </p>
+
+                    <span id="neutralPercentage">
+                        0%
+                    </span>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- =============================================
+                 TWEET LENGTH ANALYTICS
+            ============================================== -->
+
+            <div class="analytics-cards">
+
+
+                <div class="analytics-card">
+
+                    <h3>
+                        Average Tweet Length
+                    </h3>
+
+                    <p id="averageTweetLength">
+                        0
+                    </p>
+
+                    <span>
+                        characters
+                    </span>
+
+                </div>
+
+
+                <div class="analytics-card">
+
+                    <h3>
+                        Positive Avg. Length
+                    </h3>
+
+                    <p id="averagePositiveLength">
+                        0
+                    </p>
+
+                    <span>
+                        characters
+                    </span>
+
+                </div>
+
+
+                <div class="analytics-card">
+
+                    <h3>
+                        Negative Avg. Length
+                    </h3>
+
+                    <p id="averageNegativeLength">
+                        0
+                    </p>
+
+                    <span>
+                        characters
+                    </span>
+
+                </div>
+
+
+                <div class="analytics-card">
+
+                    <h3>
+                        Neutral Avg. Length
+                    </h3>
+
+                    <p id="averageNeutralLength">
+                        0
+                    </p>
+
+                    <span>
+                        characters
+                    </span>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- =============================================
+                 SENTIMENT CHARTS
+            ============================================== -->
+
+            <div class="charts-container">
+
+
+                <!-- Doughnut Chart -->
+
+                <div class="chart-card">
+
+                    <h3>
+                        Sentiment Distribution
+                    </h3>
+
+                    <canvas id="sentimentPieChart">
+                    </canvas>
+
+                </div>
+
+
+                <!-- Bar Chart -->
+
+                <div class="chart-card">
+
+                    <h3>
+                        Sentiment Comparison
+                    </h3>
+
+                    <canvas id="sentimentBarChart">
+                    </canvas>
+
+                </div>
+
+
+            </div>
+
+
+        </section>
+
+
+
+        <!-- =================================================
+             MODEL PERFORMANCE
+        ================================================== -->
+
+        <section class="analytics-section">
+
+            <h2>
+                Model Performance
+            </h2>
+
+            <p class="analytics-description">
+                Performance of the trained sentiment classification
+                model evaluated on the test dataset.
+            </p>
+
+
+            <div class="analytics-cards">
+
+
+                <!-- Accuracy -->
+
+                <div class="analytics-card">
+
+                    <h3>
+                        Accuracy
+                    </h3>
+
+                    <p id="accuracy">
+                        0%
+                    </p>
+
+                    <span>
+                        Overall Correctness
+                    </span>
+
+                </div>
+
+
+                <!-- Precision -->
+
+                <div class="analytics-card">
+
+                    <h3>
+                        Precision
+                    </h3>
+
+                    <p id="precision">
+                        0%
+                    </p>
+
+                    <span>
+                        Positive Prediction Quality
+                    </span>
+
+                </div>
+
+
+                <!-- Recall -->
+
+                <div class="analytics-card">
+
+                    <h3>
+                        Recall
+                    </h3>
+
+                    <p id="recall">
+                        0%
+                    </p>
+
+                    <span>
+                        Detection Rate
+                    </span>
+
+                </div>
+
+
+                <!-- F1 Score -->
+
+                <div class="analytics-card">
+
+                    <h3>
+                        F1-Score
+                    </h3>
+
+                    <p id="f1Score">
+                        0%
+                    </p>
+
+                    <span>
+                        Balanced Performance
+                    </span>
+
+                </div>
+
+
+            </div>
+
+
+        </section>
+
+
+
+        <!-- =================================================
+             PREDICTION HISTORY
+        ================================================== -->
 
         <section class="card table-container">
-            <h2>Prediction History</h2>
+
+            <h2>
+                Prediction History
+            </h2>
+
+            <p class="analytics-description">
+                Recent tweets submitted through the web application
+                and stored in the PostgreSQL database.
+            </p>
+
 
             <table class="dashboard-table">
+
                 <thead>
+
                     <tr>
-                        <th>ID</th>
-                        <th>Tweet</th>
-                        <th>Sentiment</th>
-                        <th>Confidence</th>
-                        <th>Date</th>
+
+                        <th>
+                            ID
+                        </th>
+
+                        <th>
+                            Tweet
+                        </th>
+
+                        <th>
+                            Sentiment
+                        </th>
+
+                        <th>
+                            Confidence
+                        </th>
+
+                        <th>
+                            Date
+                        </th>
+
                     </tr>
+
                 </thead>
 
+
                 <tbody id="historyTable">
-                    <!-- Populated dynamically via JavaScript -->
+
+                    <!--
+                        Prediction history is loaded
+                        dynamically using JavaScript.
+                    -->
+
                 </tbody>
+
             </table>
+
         </section>
 
-        <div class="analytics-section">
 
-    <h2>Sentiment Analytics</h2>
-
-    <!-- ============================= -->
-    <!-- SUMMARY CARDS -->
-    <!-- ============================= -->
-
-    <div class="analytics-cards">
-
-        <div class="analytics-card">
-            <h3>Total Predictions</h3>
-            <p id="totalPredictions">0</p>
-        </div>
-
-        <div class="analytics-card">
-            <h3>Positive</h3>
-            <p id="positiveCount">0</p>
-            <span id="positivePercentage">0%</span>
-        </div>
-
-        <div class="analytics-card">
-            <h3>Negative</h3>
-            <p id="negativeCount">0</p>
-            <span id="negativePercentage">0%</span>
-        </div>
-
-        <div class="analytics-card">
-            <h3>Neutral</h3>
-            <p id="neutralCount">0</p>
-            <span id="neutralPercentage">0%</span>
-        </div>
-
-    </div>
-
-
-    <!-- ============================= -->
-    <!-- AVERAGE CONFIDENCE -->
-    <!-- ============================= -->
-
-    <div class="confidence-card">
-
-        <h3>Average Prediction Confidence</h3>
-
-        <p id="averageConfidence">0%</p>
-
-    </div>
-
-
-    <!-- ============================= -->
-    <!-- CHARTS -->
-    <!-- ============================= -->
-
-    <div class="charts-container">
-
-        <div class="chart-card">
-
-            <h3>Sentiment Distribution</h3>
-
-            <canvas id="sentimentPieChart"></canvas>
-
-        </div>
-
-
-        <div class="chart-card">
-
-            <h3>Sentiment Comparison</h3>
-
-            <canvas id="sentimentBarChart"></canvas>
-
-        </div>
-
-    </div>
-
-</div>
     </main>
 
+
+
+    <!-- =====================================================
+         JAVASCRIPT
+    ====================================================== -->
+
     <script>
+
+
+        /* ==================================================
+           ESCAPE HTML
+        ================================================== */
+
+        function escapeHtml(text) {
+
+            const div =
+                document.createElement("div");
+
+            div.textContent =
+                text;
+
+            return div.innerHTML;
+
+        }
+
+
+
+        /* ==================================================
+           LOAD PREDICTION HISTORY
+        ================================================== */
+
         async function loadHistory() {
+
             try {
-                const response = await fetch("/api/history");
-                const data = await response.json();
-                const table = document.getElementById("historyTable");
+
+                const response =
+                    await fetch("/api/history");
+
+                const data =
+                    await response.json();
+
+                const table =
+                    document.getElementById(
+                        "historyTable"
+                    );
 
                 table.innerHTML = "";
 
-                if (!Array.isArray(data) || data.length === 0) {
+
+                if (
+                    !Array.isArray(data)
+                    ||
+                    data.length === 0
+                ) {
+
                     table.innerHTML = `
+
                         <tr>
-                            <td colspan="5" style="text-align: center; color: #64748b; padding: 25px;">
+
+                            <td
+                                colspan="5"
+                                style="
+                                    text-align:center;
+                                    color:#64748b;
+                                    padding:25px;
+                                "
+                            >
+
                                 No prediction history found.
+
                             </td>
-                        </tr>`;
-                    return;
-                }
 
-                data.forEach(item => {
-                    const row = document.createElement("tr");
+                        </tr>
 
-                    // Map sentiment to styled badges
-                    const sentimentLower = (item.sentiment || "").toLowerCase();
-                    let badgeClass = "badge-neutral";
-                    let fillClass = "neutral-fill";
-
-                    if (sentimentLower === "positive") {
-                        badgeClass = "badge-positive";
-                        fillClass = "";
-                    } else if (sentimentLower === "negative") {
-                        badgeClass = "badge-negative";
-                        fillClass = "negative-fill";
-                    }
-
-                    const confidenceVal = item.confidence ? item.confidence.toFixed(1) : "0.0";
-
-                    row.innerHTML = `
-                        <td>#${item.id}</td>
-                        <td class="tweet-cell" title="${item.tweet}">${item.tweet}</td>
-                        <td><span class="badge ${badgeClass}">${item.sentiment}</span></td>
-                        <td>
-                            <div class="confidence-bar">
-                                <div class="fill ${fillClass}" style="width: ${confidenceVal}%"></div>
-                                <span>${confidenceVal}%</span>
-                            </div>
-                        </td>
-                        <td class="time-cell">${item.created_at}</td>
                     `;
 
-                    table.appendChild(row);
-                });
-            } catch (error) {
-                console.error("Failed to load history:", error);
-            }
-        }
-
-        loadHistory();
-
-       async function loadAnalytics() {
-
-    try {
-
-        const response = await fetch("/api/analytics");
-
-        const data = await response.json();
-
-        if (!data.success) {
-
-            console.error(
-                "Analytics error:",
-                data.error
-            );
-
-            return;
-        }
-
-
-        // ==========================================
-        // UPDATE SUMMARY CARDS
-        // ==========================================
-
-        document.getElementById(
-            "totalPredictions"
-        ).textContent = data.total;
-
-
-        document.getElementById(
-            "positiveCount"
-        ).textContent = data.positive;
-
-
-        document.getElementById(
-            "negativeCount"
-        ).textContent = data.negative;
-
-
-        document.getElementById(
-            "neutralCount"
-        ).textContent = data.neutral;
-
-
-        document.getElementById(
-            "positivePercentage"
-        ).textContent =
-            data.positive_percentage + "%";
-
-
-        document.getElementById(
-            "negativePercentage"
-        ).textContent =
-            data.negative_percentage + "%";
-
-
-        document.getElementById(
-            "neutralPercentage"
-        ).textContent =
-            data.neutral_percentage + "%";
-
-
-        document.getElementById(
-            "averageConfidence"
-        ).textContent =
-            data.average_confidence + "%";
-
-
-        // ==========================================
-        // PIE / DOUGHNUT CHART
-        // ==========================================
-
-        const pieCanvas =
-            document.getElementById(
-                "sentimentPieChart"
-            );
-
-
-        new Chart(pieCanvas, {
-
-            type: "doughnut",
-
-            data: {
-
-                labels: [
-                    "Positive",
-                    "Negative",
-                    "Neutral"
-                ],
-
-                datasets: [{
-
-                    data: [
-                        data.positive,
-                        data.negative,
-                        data.neutral
-                    ]
-
-                }]
-
-            },
-
-            options: {
-
-                responsive: true,
-
-                plugins: {
-
-                    legend: {
-
-                        position: "bottom"
-
-                    }
+                    return;
 
                 }
 
+
+                data.forEach(item => {
+
+                    const row =
+                        document.createElement("tr");
+
+
+                    /* ======================================
+                       SENTIMENT
+                    ====================================== */
+
+                    const sentimentLower =
+                        (
+                            item.sentiment || ""
+                        ).toLowerCase();
+
+
+                    let badgeClass =
+                        "badge-neutral";
+
+                    let fillClass =
+                        "neutral-fill";
+
+
+                    if (
+                        sentimentLower ===
+                        "positive"
+                    ) {
+
+                        badgeClass =
+                            "badge-positive";
+
+                        fillClass = "";
+
+                    }
+
+
+                    else if (
+                        sentimentLower ===
+                        "negative"
+                    ) {
+
+                        badgeClass =
+                            "badge-negative";
+
+                        fillClass =
+                            "negative-fill";
+
+                    }
+
+
+                    /* ======================================
+                       CONFIDENCE
+                    ====================================== */
+
+                    const confidenceVal =
+                        item.confidence
+                        ?
+                        Number(
+                            item.confidence
+                        ).toFixed(1)
+                        :
+                        "0.0";
+
+
+                    /* ======================================
+                       TABLE ROW
+                    ====================================== */
+
+                    row.innerHTML = `
+
+                        <td>
+                            #${item.id}
+                        </td>
+
+                        <td
+                            class="tweet-cell"
+                            title="${escapeHtml(
+                                item.tweet || ""
+                            )}"
+                        >
+
+                            ${escapeHtml(
+                                item.tweet || ""
+                            )}
+
+                        </td>
+
+                        <td>
+
+                            <span
+                                class="badge ${badgeClass}"
+                            >
+
+                                ${escapeHtml(
+                                    item.sentiment || ""
+                                )}
+
+                            </span>
+
+                        </td>
+
+                        <td>
+
+                            <div
+                                class="confidence-bar"
+                            >
+
+                                <div
+                                    class="fill ${fillClass}"
+                                    style="
+                                        width:${confidenceVal}%;
+                                    "
+                                >
+                                </div>
+
+                                <span>
+                                    ${confidenceVal}%
+                                </span>
+
+                            </div>
+
+                        </td>
+
+                        <td class="time-cell">
+
+                            ${escapeHtml(
+                                item.created_at || ""
+                            )}
+
+                        </td>
+
+                    `;
+
+
+                    table.appendChild(row);
+
+                });
+
+
             }
 
-        });
+            catch (error) {
+
+                console.error(
+                    "Failed to load history:",
+                    error
+                );
+
+            }
+
+        }
 
 
-        // ==========================================
-        // BAR CHART
-        // ==========================================
 
-        const barCanvas =
-            document.getElementById(
-                "sentimentBarChart"
-            );
+        /* ==================================================
+           LOAD KAGGLE DATASET ANALYTICS
+        ================================================== */
+
+        async function loadAnalytics() {
+
+            try {
+
+                const response =
+                    await fetch(
+                        "/api/analytics"
+                    );
+
+                const data =
+                    await response.json();
 
 
-        new Chart(barCanvas, {
+                if (!data.success) {
 
-            type: "bar",
+                    console.error(
+                        "Analytics error:",
+                        data.error
+                    );
 
-            data: {
+                    return;
 
-                labels: [
-                    "Positive",
-                    "Negative",
-                    "Neutral"
-                ],
+                }
 
-                datasets: [{
 
-                    label: "Number of Predictions",
+                /* ==========================================
+                   SUMMARY CARDS
+                ========================================== */
 
-                    data: [
-                        data.positive,
-                        data.negative,
+                document.getElementById(
+                    "totalPredictions"
+                ).textContent =
+                    Number(
+                        data.total_tweets
+                    ).toLocaleString();
+
+
+                document.getElementById(
+                    "positiveCount"
+                ).textContent =
+                    Number(
+                        data.positive
+                    ).toLocaleString();
+
+
+                document.getElementById(
+                    "negativeCount"
+                ).textContent =
+                    Number(
+                        data.negative
+                    ).toLocaleString();
+
+
+                document.getElementById(
+                    "neutralCount"
+                ).textContent =
+                    Number(
                         data.neutral
-                    ]
+                    ).toLocaleString();
 
-                }]
 
-            },
+                document.getElementById(
+                    "positivePercentage"
+                ).textContent =
+                    data.positive_percentage
+                    + "%";
 
-            options: {
 
-                responsive: true,
+                document.getElementById(
+                    "negativePercentage"
+                ).textContent =
+                    data.negative_percentage
+                    + "%";
 
-                scales: {
 
-                    y: {
+                document.getElementById(
+                    "neutralPercentage"
+                ).textContent =
+                    data.neutral_percentage
+                    + "%";
 
-                        beginAtZero: true,
 
-                        ticks: {
+                /* ==========================================
+                   TWEET LENGTH
+                ========================================== */
 
-                            precision: 0
+                document.getElementById(
+                    "averageTweetLength"
+                ).textContent =
+                    data.average_tweet_length;
+
+
+                document.getElementById(
+                    "averagePositiveLength"
+                ).textContent =
+                    data.average_length_positive;
+
+
+                document.getElementById(
+                    "averageNegativeLength"
+                ).textContent =
+                    data.average_length_negative;
+
+
+                document.getElementById(
+                    "averageNeutralLength"
+                ).textContent =
+                    data.average_length_neutral;
+
+
+
+                /* ==========================================
+                   DOUGHNUT CHART
+                ========================================== */
+
+                const pieCanvas =
+                    document.getElementById(
+                        "sentimentPieChart"
+                    );
+
+
+                new Chart(
+
+                    pieCanvas,
+
+                    {
+
+                        type: "doughnut",
+
+                        data: {
+
+                            labels: [
+
+                                "Positive",
+
+                                "Negative",
+
+                                "Neutral"
+
+                            ],
+
+                            datasets: [{
+
+                                data: [
+
+                                    data.positive,
+
+                                    data.negative,
+
+                                    data.neutral
+
+                                ]
+
+                            }]
+
+                        },
+
+                        options: {
+
+                            responsive: true,
+
+                            maintainAspectRatio:
+                                true,
+
+                            plugins: {
+
+                                legend: {
+
+                                    position:
+                                        "bottom"
+
+                                }
+
+                            }
 
                         }
 
                     }
 
-                }
+                );
+
+
+
+                /* ==========================================
+                   BAR CHART
+                ========================================== */
+
+                const barCanvas =
+                    document.getElementById(
+                        "sentimentBarChart"
+                    );
+
+
+                new Chart(
+
+                    barCanvas,
+
+                    {
+
+                        type: "bar",
+
+                        data: {
+
+                            labels: [
+
+                                "Positive",
+
+                                "Negative",
+
+                                "Neutral"
+
+                            ],
+
+                            datasets: [{
+
+                                label:
+                                    "Number of Tweets",
+
+                                data: [
+
+                                    data.positive,
+
+                                    data.negative,
+
+                                    data.neutral
+
+                                ]
+
+                            }]
+
+                        },
+
+                        options: {
+
+                            responsive: true,
+
+                            maintainAspectRatio:
+                                true,
+
+                            scales: {
+
+                                y: {
+
+                                    beginAtZero:
+                                        true,
+
+                                    ticks: {
+
+                                        precision:
+                                            0
+
+                                    }
+
+                                }
+
+                            },
+
+                            plugins: {
+
+                                legend: {
+
+                                    display:
+                                        false
+
+                                }
+
+                            }
+
+                        }
+
+                    }
+
+                );
+
+
+                console.log(
+                    "Kaggle analytics loaded successfully:",
+                    data
+                );
+
 
             }
 
-        });
+            catch (error) {
 
-    }
+                console.error(
+                    "Failed to load analytics:",
+                    error
+                );
 
-    catch (error) {
+            }
 
-        console.error(
-            "Failed to load analytics:",
-            error
-        );
-
-    }
-
-}
+        }
 
 
-// Load analytics when dashboard opens
-loadAnalytics();
+
+        /* ==================================================
+           LOAD MODEL PERFORMANCE
+        ================================================== */
+
+        async function loadModelPerformance() {
+
+            try {
+
+                const response =
+                    await fetch(
+                        "/api/model-performance"
+                    );
+
+                const data =
+                    await response.json();
+
+
+                if (!data.success) {
+
+                    console.error(
+                        "Model performance error:",
+                        data.error
+                    );
+
+                    return;
+
+                }
+
+
+                /* ==========================================
+                   PERFORMANCE METRICS
+                ========================================== */
+
+                document.getElementById(
+                    "accuracy"
+                ).textContent =
+                    data.accuracy + "%";
+
+
+                document.getElementById(
+                    "precision"
+                ).textContent =
+                    data.precision + "%";
+
+
+                document.getElementById(
+                    "recall"
+                ).textContent =
+                    data.recall + "%";
+
+
+                document.getElementById(
+                    "f1Score"
+                ).textContent =
+                    data.f1_score + "%";
+
+
+                console.log(
+                    "Model performance loaded:",
+                    data
+                );
+
+            }
+
+            catch (error) {
+
+                console.error(
+                    "Failed to load model performance:",
+                    error
+                );
+
+            }
+
+        }
+
+
+
+        /* ==================================================
+           LOAD ALL DASHBOARD DATA
+        ================================================== */
+
+        loadHistory();
+
+        loadAnalytics();
+
+        loadModelPerformance();
+
+
     </script>
 
+
 </body>
+
 </html>
