@@ -60,8 +60,8 @@
 
             <p>
                 Explore Twitter sentiment analytics from the
-                Kaggle dataset and evaluate the performance of
-                the sentiment classification model.
+                Kaggle dataset and tweets submitted through
+                the web application.
             </p>
 
         </section>
@@ -69,18 +69,19 @@
 
 
         <!-- =================================================
-             KAGGLE DATASET ANALYTICS
+             COMBINED DATASET ANALYTICS
         ================================================== -->
 
         <section class="analytics-section">
 
             <h2>
-                Kaggle Dataset Analytics
+                Combined Dataset Analytics
             </h2>
 
             <p class="analytics-description">
-                Statistical analysis of the Twitter Sentiment
-                Extraction dataset used for model development.
+                Statistical analysis combining the Kaggle Twitter
+                Sentiment dataset with tweets submitted through
+                the web application.
             </p>
 
 
@@ -104,7 +105,7 @@
                     </p>
 
                     <span>
-                        Kaggle Dataset
+                        Kaggle + User Data
                     </span>
 
                 </div>
@@ -177,6 +178,8 @@
             <div class="analytics-cards">
 
 
+                <!-- Average Tweet Length -->
+
                 <div class="analytics-card">
 
                     <h3>
@@ -193,6 +196,8 @@
 
                 </div>
 
+
+                <!-- Positive Average Length -->
 
                 <div class="analytics-card">
 
@@ -211,6 +216,8 @@
                 </div>
 
 
+                <!-- Negative Average Length -->
+
                 <div class="analytics-card">
 
                     <h3>
@@ -227,6 +234,8 @@
 
                 </div>
 
+
+                <!-- Neutral Average Length -->
 
                 <div class="analytics-card">
 
@@ -255,7 +264,9 @@
             <div class="charts-container">
 
 
-                <!-- Doughnut Chart -->
+                <!-- =========================================
+                     DOUGHNUT CHART
+                ========================================== -->
 
                 <div class="chart-card">
 
@@ -269,7 +280,9 @@
                 </div>
 
 
-                <!-- Bar Chart -->
+                <!-- =========================================
+                     BAR CHART
+                ========================================== -->
 
                 <div class="chart-card">
 
@@ -567,7 +580,8 @@
                         badgeClass =
                             "badge-positive";
 
-                        fillClass = "";
+                        fillClass =
+                            "";
 
                     }
 
@@ -691,7 +705,7 @@
 
 
         /* ==================================================
-           LOAD KAGGLE DATASET ANALYTICS
+           LOAD COMBINED DATASET ANALYTICS
         ================================================== */
 
         async function loadAnalytics() {
@@ -755,25 +769,37 @@
                     ).toLocaleString();
 
 
+
+                /* ==========================================
+                   SENTIMENT PERCENTAGES
+                ========================================== */
+
                 document.getElementById(
                     "positivePercentage"
                 ).textContent =
-                    data.positive_percentage
+                    Number(
+                        data.positive_percentage
+                    ).toFixed(2)
                     + "%";
 
 
                 document.getElementById(
                     "negativePercentage"
                 ).textContent =
-                    data.negative_percentage
+                    Number(
+                        data.negative_percentage
+                    ).toFixed(2)
                     + "%";
 
 
                 document.getElementById(
                     "neutralPercentage"
                 ).textContent =
-                    data.neutral_percentage
+                    Number(
+                        data.neutral_percentage
+                    ).toFixed(2)
                     + "%";
+
 
 
                 /* ==========================================
@@ -783,29 +809,52 @@
                 document.getElementById(
                     "averageTweetLength"
                 ).textContent =
-                    data.average_tweet_length;
+                    Number(
+                        data.average_tweet_length
+                    ).toFixed(2);
 
 
                 document.getElementById(
                     "averagePositiveLength"
                 ).textContent =
-                    data.average_length_positive;
+                    Number(
+                        data.average_length_positive
+                    ).toFixed(2);
 
 
                 document.getElementById(
                     "averageNegativeLength"
                 ).textContent =
-                    data.average_length_negative;
+                    Number(
+                        data.average_length_negative
+                    ).toFixed(2);
 
 
                 document.getElementById(
                     "averageNeutralLength"
                 ).textContent =
-                    data.average_length_neutral;
+                    Number(
+                        data.average_length_neutral
+                    ).toFixed(2);
 
 
 
-              /* ==========================================
+                /* ==========================================
+                   DESTROY OLD DOUGHNUT CHART
+                   IF IT EXISTS
+                ========================================== */
+
+                if (
+                    window.sentimentPieChart
+                ) {
+
+                    window.sentimentPieChart.destroy();
+
+                }
+
+
+
+                /* ==========================================
                    DOUGHNUT CHART
                 ========================================== */
 
@@ -815,63 +864,372 @@
                     );
 
 
-                new Chart(
+                window.sentimentPieChart =
+                    new Chart(
 
-                    pieCanvas,
+                        pieCanvas,
 
-                    {
+                        {
 
-                        type: "doughnut",
+                            type: "doughnut",
 
-                        data: {
+                            data: {
 
-                            labels: [
+                                labels: [
 
-                                "Positive",
+                                    "Positive",
 
-                                "Negative",
+                                    "Negative",
 
-                                "Neutral"
+                                    "Neutral"
 
-                            ],
+                                ],
 
-                            datasets: [{
+                                datasets: [{
 
-                                data: [
+                                    data: [
 
-                                    data.positive,
+                                        data.positive,
 
-                                    data.negative,
+                                        data.negative,
 
-                                    data.neutral
+                                        data.neutral
 
-                                ]
+                                    ]
 
-                            }]
+                                }]
 
-                        },
+                            },
 
-                        options: {
 
-                            responsive: true,
+                            options: {
 
-                            maintainAspectRatio: true,
+                                responsive: true,
 
-                            cutout: "55%",
+                                maintainAspectRatio: true,
 
-                            plugins: {
+                                cutout: "55%",
 
-                                legend: {
 
-                                    position: "bottom",
+                                plugins: {
 
-                                    labels: {
+                                    /* =====================
+                                       LEGEND
+                                    ====================== */
 
-                                        padding: 20,
+                                    legend: {
 
-                                        font: {
+                                        position: "bottom",
 
-                                            size: 14
+                                        labels: {
+
+                                            padding: 20,
+
+                                            font: {
+
+                                                size: 14
+
+                                            }
+
+                                        }
+
+                                    },
+
+
+                                    /* =====================
+                                       TOOLTIP
+                                    ====================== */
+
+                                    tooltip: {
+
+                                        callbacks: {
+
+                                            label:
+                                                function(
+                                                    context
+                                                ) {
+
+                                                    const value =
+                                                        context.raw;
+
+
+                                                    const total =
+                                                        context
+                                                            .dataset
+                                                            .data
+                                                            .reduce(
+                                                                (
+                                                                    sum,
+                                                                    val
+                                                                ) =>
+                                                                    sum
+                                                                    + val,
+                                                                0
+                                                            );
+
+
+                                                    if (
+                                                        total === 0
+                                                    ) {
+
+                                                        return (
+                                                            context.label
+                                                            + ": 0 tweets"
+                                                        );
+
+                                                    }
+
+
+                                                    const percentage =
+                                                        (
+                                                            value
+                                                            / total
+                                                            * 100
+                                                        ).toFixed(2);
+
+
+                                                    return (
+                                                        context.label
+                                                        + ": "
+                                                        + value
+                                                        + " tweets ("
+                                                        + percentage
+                                                        + "%)"
+                                                    );
+
+                                                }
+
+                                        }
+
+                                    }
+
+                                }
+
+                            },
+
+
+                            /* ==================================
+                               DISPLAY % INSIDE DOUGHNUT
+                            =================================== */
+
+                            plugins: [
+
+                                {
+
+                                    id:
+                                        "sentimentPercentage",
+
+
+                                    afterDatasetsDraw:
+                                        function(chart) {
+
+                                            const ctx =
+                                                chart.ctx;
+
+
+                                            const dataset =
+                                                chart
+                                                    .data
+                                                    .datasets[0];
+
+
+                                            const total =
+                                                dataset
+                                                    .data
+                                                    .reduce(
+                                                        (
+                                                            sum,
+                                                            value
+                                                        ) =>
+                                                            sum
+                                                            + value,
+                                                        0
+                                                    );
+
+
+                                            if (
+                                                total === 0
+                                            ) {
+
+                                                return;
+
+                                            }
+
+
+                                            chart
+                                                .getDatasetMeta(0)
+                                                .data
+                                                .forEach(
+                                                    function(
+                                                        arc,
+                                                        index
+                                                    ) {
+
+
+                                                        const value =
+                                                            dataset
+                                                                .data[
+                                                                    index
+                                                                ];
+
+
+                                                        if (
+                                                            !value
+                                                        ) {
+
+                                                            return;
+
+                                                        }
+
+
+                                                        const percentage =
+                                                            (
+                                                                value
+                                                                / total
+                                                                * 100
+                                                            ).toFixed(1);
+
+
+                                                        const center =
+                                                            arc
+                                                                .getCenterPoint();
+
+
+                                                        ctx.save();
+
+
+                                                        ctx.font =
+                                                            "bold 14px Arial";
+
+
+                                                        ctx.fillStyle =
+                                                            "#ffffff";
+
+
+                                                        ctx.textAlign =
+                                                            "center";
+
+
+                                                        ctx.textBaseline =
+                                                            "middle";
+
+
+                                                        ctx.fillText(
+
+                                                            percentage
+                                                            + "%",
+
+                                                            center.x,
+
+                                                            center.y
+
+                                                        );
+
+
+                                                        ctx.restore();
+
+                                                    }
+                                                );
+
+                                        }
+
+                                }
+
+                            ]
+
+                        }
+
+                    );
+
+
+
+                /* ==========================================
+                   DESTROY OLD BAR CHART
+                   IF IT EXISTS
+                ========================================== */
+
+                if (
+                    window.sentimentBarChart
+                ) {
+
+                    window.sentimentBarChart.destroy();
+
+                }
+
+
+
+                /* ==========================================
+                   BAR CHART
+                ========================================== */
+
+                const barCanvas =
+                    document.getElementById(
+                        "sentimentBarChart"
+                    );
+
+
+                window.sentimentBarChart =
+                    new Chart(
+
+                        barCanvas,
+
+                        {
+
+                            type: "bar",
+
+
+                            data: {
+
+                                labels: [
+
+                                    "Positive",
+
+                                    "Negative",
+
+                                    "Neutral"
+
+                                ],
+
+
+                                datasets: [{
+
+                                    label:
+                                        "Number of Tweets",
+
+
+                                    data: [
+
+                                        data.positive,
+
+                                        data.negative,
+
+                                        data.neutral
+
+                                    ]
+
+                                }]
+
+                            },
+
+
+                            options: {
+
+                                responsive: true,
+
+                                maintainAspectRatio: true,
+
+
+                                scales: {
+
+                                    y: {
+
+                                        beginAtZero:
+                                            true,
+
+                                        ticks: {
+
+                                            precision:
+                                                0
 
                                         }
 
@@ -879,36 +1237,65 @@
 
                                 },
 
-                                tooltip: {
 
-                                    callbacks: {
+                                plugins: {
 
-                                        label: function(context) {
+                                    legend: {
 
-                                            const value =
-                                                context.raw;
+                                        display:
+                                            false
 
-                                            const total =
-                                                context.dataset.data
-                                                .reduce(
-                                                    (sum, val) =>
-                                                        sum + val,
-                                                    0
-                                                );
+                                    },
 
-                                            const percentage =
-                                                (
-                                                    value / total * 100
-                                                ).toFixed(2);
 
-                                            return (
-                                                context.label
-                                                + ": "
-                                                + value
-                                                + " tweets ("
-                                                + percentage
-                                                + "%)"
-                                            );
+                                    tooltip: {
+
+                                        callbacks: {
+
+                                            label:
+                                                function(
+                                                    context
+                                                ) {
+
+                                                    const value =
+                                                        context.raw;
+
+
+                                                    const total =
+                                                        context
+                                                            .dataset
+                                                            .data
+                                                            .reduce(
+                                                                (
+                                                                    sum,
+                                                                    val
+                                                                ) =>
+                                                                    sum
+                                                                    + val,
+                                                                0
+                                                            );
+
+
+                                                    const percentage =
+                                                        total > 0
+                                                        ?
+                                                        (
+                                                            value
+                                                            / total
+                                                            * 100
+                                                        ).toFixed(2)
+                                                        :
+                                                        "0.00";
+
+
+                                                    return (
+                                                        value
+                                                        + " tweets ("
+                                                        + percentage
+                                                        + "%)"
+                                                    );
+
+                                                }
 
                                         }
 
@@ -918,100 +1305,37 @@
 
                             }
 
-                        },
+                        }
 
-                        plugins: [
-
-                            {
-
-                                id: "sentimentPercentage",
-
-                                afterDatasetsDraw(chart) {
-
-                                    const {
-                                        ctx
-                                    } = chart;
-
-                                    const dataset =
-                                        chart.data.datasets[0];
-
-                                    const total =
-                                        dataset.data.reduce(
-                                            (sum, value) =>
-                                                sum + value,
-                                            0
-                                        );
+                    );
 
 
-                                    chart
-                                        .getDatasetMeta(0)
-                                        .data
-                                        .forEach(
-                                            (arc, index) => {
 
-                                                const value =
-                                                    dataset.data[index];
+                /* ==========================================
+                   CONSOLE
+                ========================================== */
 
-                                                if (!value) {
-                                                    return;
-                                                }
-
-                                                const percentage =
-                                                    (
-                                                        value /
-                                                        total *
-                                                        100
-                                                    ).toFixed(1);
-
-
-                                                const {
-                                                    x,
-                                                    y
-                                                } =
-                                                    arc.getCenterPoint();
-
-
-                                                ctx.save();
-
-
-                                                ctx.font =
-                                                    "bold 14px Arial";
-
-                                                ctx.fillStyle =
-                                                    "#ffffff";
-
-                                                ctx.textAlign =
-                                                    "center";
-
-                                                ctx.textBaseline =
-                                                    "middle";
-
-
-                                                ctx.fillText(
-
-                                                    percentage + "%",
-
-                                                    x,
-
-                                                    y
-
-                                                );
-
-
-                                                ctx.restore();
-
-                                            }
-                                        );
-
-                                }
-
-                            }
-
-                        ]
-
-                    }
-
+                console.log(
+                    "Combined analytics loaded successfully:",
+                    data
                 );
+
+
+            }
+
+
+            catch (error) {
+
+                console.error(
+                    "Failed to load analytics:",
+                    error
+                );
+
+            }
+
+        }
+
+
 
         /* ==================================================
            LOAD MODEL PERFORMANCE
@@ -1025,6 +1349,7 @@
                     await fetch(
                         "/api/model-performance"
                     );
+
 
                 const data =
                     await response.json();
@@ -1043,31 +1368,55 @@
 
 
                 /* ==========================================
-                   PERFORMANCE METRICS
+                   ACCURACY
                 ========================================== */
 
                 document.getElementById(
                     "accuracy"
                 ).textContent =
-                    data.accuracy + "%";
+                    Number(
+                        data.accuracy
+                    ).toFixed(2)
+                    + "%";
 
+
+                /* ==========================================
+                   PRECISION
+                ========================================== */
 
                 document.getElementById(
                     "precision"
                 ).textContent =
-                    data.precision + "%";
+                    Number(
+                        data.precision
+                    ).toFixed(2)
+                    + "%";
 
+
+                /* ==========================================
+                   RECALL
+                ========================================== */
 
                 document.getElementById(
                     "recall"
                 ).textContent =
-                    data.recall + "%";
+                    Number(
+                        data.recall
+                    ).toFixed(2)
+                    + "%";
 
+
+                /* ==========================================
+                   F1 SCORE
+                ========================================== */
 
                 document.getElementById(
                     "f1Score"
                 ).textContent =
-                    data.f1_score + "%";
+                    Number(
+                        data.f1_score
+                    ).toFixed(2)
+                    + "%";
 
 
                 console.log(
@@ -1076,6 +1425,7 @@
                 );
 
             }
+
 
             catch (error) {
 
