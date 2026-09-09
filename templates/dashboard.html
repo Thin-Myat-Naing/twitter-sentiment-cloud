@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
@@ -46,6 +47,82 @@
                 </tbody>
             </table>
         </section>
+
+        <div class="analytics-section">
+
+    <h2>Sentiment Analytics</h2>
+
+    <!-- ============================= -->
+    <!-- SUMMARY CARDS -->
+    <!-- ============================= -->
+
+    <div class="analytics-cards">
+
+        <div class="analytics-card">
+            <h3>Total Predictions</h3>
+            <p id="totalPredictions">0</p>
+        </div>
+
+        <div class="analytics-card">
+            <h3>Positive</h3>
+            <p id="positiveCount">0</p>
+            <span id="positivePercentage">0%</span>
+        </div>
+
+        <div class="analytics-card">
+            <h3>Negative</h3>
+            <p id="negativeCount">0</p>
+            <span id="negativePercentage">0%</span>
+        </div>
+
+        <div class="analytics-card">
+            <h3>Neutral</h3>
+            <p id="neutralCount">0</p>
+            <span id="neutralPercentage">0%</span>
+        </div>
+
+    </div>
+
+
+    <!-- ============================= -->
+    <!-- AVERAGE CONFIDENCE -->
+    <!-- ============================= -->
+
+    <div class="confidence-card">
+
+        <h3>Average Prediction Confidence</h3>
+
+        <p id="averageConfidence">0%</p>
+
+    </div>
+
+
+    <!-- ============================= -->
+    <!-- CHARTS -->
+    <!-- ============================= -->
+
+    <div class="charts-container">
+
+        <div class="chart-card">
+
+            <h3>Sentiment Distribution</h3>
+
+            <canvas id="sentimentPieChart"></canvas>
+
+        </div>
+
+
+        <div class="chart-card">
+
+            <h3>Sentiment Comparison</h3>
+
+            <canvas id="sentimentBarChart"></canvas>
+
+        </div>
+
+    </div>
+
+</div>
     </main>
 
     <script>
@@ -106,6 +183,203 @@
         }
 
         loadHistory();
+
+       async function loadAnalytics() {
+
+    try {
+
+        const response = await fetch("/api/analytics");
+
+        const data = await response.json();
+
+        if (!data.success) {
+
+            console.error(
+                "Analytics error:",
+                data.error
+            );
+
+            return;
+        }
+
+
+        // ==========================================
+        // UPDATE SUMMARY CARDS
+        // ==========================================
+
+        document.getElementById(
+            "totalPredictions"
+        ).textContent = data.total;
+
+
+        document.getElementById(
+            "positiveCount"
+        ).textContent = data.positive;
+
+
+        document.getElementById(
+            "negativeCount"
+        ).textContent = data.negative;
+
+
+        document.getElementById(
+            "neutralCount"
+        ).textContent = data.neutral;
+
+
+        document.getElementById(
+            "positivePercentage"
+        ).textContent =
+            data.positive_percentage + "%";
+
+
+        document.getElementById(
+            "negativePercentage"
+        ).textContent =
+            data.negative_percentage + "%";
+
+
+        document.getElementById(
+            "neutralPercentage"
+        ).textContent =
+            data.neutral_percentage + "%";
+
+
+        document.getElementById(
+            "averageConfidence"
+        ).textContent =
+            data.average_confidence + "%";
+
+
+        // ==========================================
+        // PIE / DOUGHNUT CHART
+        // ==========================================
+
+        const pieCanvas =
+            document.getElementById(
+                "sentimentPieChart"
+            );
+
+
+        new Chart(pieCanvas, {
+
+            type: "doughnut",
+
+            data: {
+
+                labels: [
+                    "Positive",
+                    "Negative",
+                    "Neutral"
+                ],
+
+                datasets: [{
+
+                    data: [
+                        data.positive,
+                        data.negative,
+                        data.neutral
+                    ]
+
+                }]
+
+            },
+
+            options: {
+
+                responsive: true,
+
+                plugins: {
+
+                    legend: {
+
+                        position: "bottom"
+
+                    }
+
+                }
+
+            }
+
+        });
+
+
+        // ==========================================
+        // BAR CHART
+        // ==========================================
+
+        const barCanvas =
+            document.getElementById(
+                "sentimentBarChart"
+            );
+
+
+        new Chart(barCanvas, {
+
+            type: "bar",
+
+            data: {
+
+                labels: [
+                    "Positive",
+                    "Negative",
+                    "Neutral"
+                ],
+
+                datasets: [{
+
+                    label: "Number of Predictions",
+
+                    data: [
+                        data.positive,
+                        data.negative,
+                        data.neutral
+                    ]
+
+                }]
+
+            },
+
+            options: {
+
+                responsive: true,
+
+                scales: {
+
+                    y: {
+
+                        beginAtZero: true,
+
+                        ticks: {
+
+                            precision: 0
+
+                        }
+
+                    }
+
+                }
+
+            }
+
+        });
+
+    }
+
+    catch (error) {
+
+        console.error(
+            "Failed to load analytics:",
+            error
+        );
+
+    }
+
+}
+
+
+// Load analytics when dashboard opens
+loadAnalytics();
     </script>
 
 </body>

@@ -320,7 +320,157 @@ def history():
         if conn:
             conn.close()
 
+# ==========================================================
+# ANALYTICS API
+# ==========================================================
 
+@app.route("/api/analytics")
+def analytics():
+
+    conn = None
+    cur = None
+
+    try:
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # ==================================================
+        # TOTAL PREDICTIONS
+        # ==================================================
+
+        cur.execute("""
+            SELECT COUNT(*)
+            FROM predictions
+        """)
+
+        total = cur.fetchone()[0]
+
+
+        # ==================================================
+        # SENTIMENT COUNTS
+        # ==================================================
+
+        cur.execute("""
+            SELECT
+                LOWER(sentiment) AS sentiment,
+                COUNT(*) AS count
+            FROM predictions
+            GROUP BY LOWER(sentiment)
+        """)
+
+        rows = cur.fetchall()
+
+
+        positive = 0
+        negative = 0
+        neutral = 0
+
+
+        for sentiment, count in rows:
+
+            if sentiment == "positive":
+                positive = count
+
+            elif sentiment == "negative":
+                negative = count
+
+            elif sentiment == "neutral":
+                neutral = count
+
+
+        # ==================================================
+        # PERCENTAGES
+        # ==================================================
+
+        if total > 0:
+
+            positive_percentage = round(
+                (positive / total) * 100, 2
+            )
+
+            negative_percentage = round(
+                (negative / total) * 100, 2
+            )
+
+            neutral_percentage = round(
+                (neutral / total) * 100, 2
+            )
+
+        else:
+
+            positive_percentage = 0
+            negative_percentage = 0
+            neutral_percentage = 0
+
+
+        # ==================================================
+        # AVERAGE CONFIDENCE
+        # ==================================================
+
+        cur.execute("""
+            SELECT AVG(confidence)
+            FROM predictions
+        """)
+
+        average_confidence = cur.fetchone()[0]
+
+        if average_confidence is not None:
+            average_confidence = round(
+                float(average_confidence), 2
+            )
+        else:
+            average_confidence = 0
+
+
+        # ==================================================
+        # RESPONSE
+        # ==================================================
+
+        return jsonify({
+
+            "success": True,
+
+            "total": total,
+
+            "positive": positive,
+            "negative": negative,
+            "neutral": neutral,
+
+            "positive_percentage":
+                positive_percentage,
+
+            "negative_percentage":
+                negative_percentage,
+
+            "neutral_percentage":
+                neutral_percentage,
+
+            "average_confidence":
+                average_confidence
+        })
+
+
+    except Exception as e:
+
+        print("Analytics error:", e)
+
+        return jsonify({
+
+            "success": False,
+
+            "error": str(e)
+
+        }), 500
+
+
+    finally:
+
+        if cur:
+            cur.close()
+
+        if conn:
+            conn.close()
 # ==========================================================
 # RUN APPLICATION
 # ==========================================================
