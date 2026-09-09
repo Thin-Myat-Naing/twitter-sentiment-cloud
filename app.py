@@ -3,7 +3,7 @@ import re
 from datetime import timezone, timedelta
 
 import joblib
-import psycopg2
+import pandas as pd
 
 from flask import Flask, jsonify, render_template, request
 
@@ -102,6 +102,160 @@ except Exception as e:
 
 
 # ==========================================================
+# KAGGLE DATASET
+# ==========================================================
+
+DATASET_PATH = "tweet.csv"
+
+
+print(
+    "Loading Kaggle Twitter dataset..."
+)
+
+
+try:
+
+    kaggle_df = pd.read_csv(
+        DATASET_PATH
+    )
+
+
+    print(
+        f"Kaggle dataset loaded successfully: "
+        f"{len(kaggle_df)} rows"
+    )
+
+
+    print(
+        "Dataset columns:",
+        list(kaggle_df.columns)
+    )
+
+
+    # ------------------------------------------------------
+    # Required columns
+    # ------------------------------------------------------
+
+    required_columns = [
+
+        "textID",
+
+        "text",
+
+        "selected_text",
+
+        "sentiment"
+
+    ]
+
+
+    missing_columns = [
+
+        column
+
+        for column in required_columns
+
+        if column not in kaggle_df.columns
+
+    ]
+
+
+    if missing_columns:
+
+        print(
+            "Missing dataset columns:",
+            missing_columns
+        )
+
+        kaggle_df = pd.DataFrame()
+
+
+    else:
+
+        # --------------------------------------------------
+        # Remove rows without sentiment
+        # --------------------------------------------------
+
+        kaggle_df = kaggle_df.dropna(
+            subset=["sentiment"]
+        )
+
+
+        # --------------------------------------------------
+        # Remove rows without text
+        # --------------------------------------------------
+
+        kaggle_df = kaggle_df.dropna(
+            subset=["text"]
+        )
+
+
+        # --------------------------------------------------
+        # Remove duplicate tweets
+        # --------------------------------------------------
+
+        kaggle_df = kaggle_df.drop_duplicates(
+            subset=["textID"]
+        )
+
+
+        # --------------------------------------------------
+        # Clean sentiment values
+        # --------------------------------------------------
+
+        kaggle_df["sentiment"] = (
+
+            kaggle_df["sentiment"]
+
+            .astype(str)
+
+            .str.strip()
+
+            .str.lower()
+
+        )
+
+
+        # --------------------------------------------------
+        # Calculate tweet length
+        # --------------------------------------------------
+
+        kaggle_df["tweet_length"] = (
+
+            kaggle_df["text"]
+
+            .astype(str)
+
+            .str.len()
+
+        )
+
+
+        print(
+            "Kaggle dataset preprocessing completed."
+        )
+
+
+        print(
+            "Kaggle sentiment distribution:"
+        )
+
+        print(
+            kaggle_df["sentiment"].value_counts()
+        )
+
+
+except Exception as e:
+
+    print(
+        "Kaggle dataset loading failed:",
+        e
+    )
+
+    kaggle_df = pd.DataFrame()
+
+
+# ==========================================================
 # MYANMAR TIMEZONE
 # ==========================================================
 
@@ -126,6 +280,7 @@ def predict():
     conn = None
 
     cur = None
+
 
     try:
 
@@ -192,7 +347,7 @@ def predict():
 
         # ==================================================
         # TEXT PREPROCESSING
-        # ==========================================================
+        # ==================================================
 
         cleaned_text = text.lower()
 
@@ -202,9 +357,13 @@ def predict():
         # --------------------------------------------------
 
         cleaned_text = re.sub(
+
             r"https?://\S+|www\.\S+",
+
             " ",
+
             cleaned_text
+
         )
 
 
@@ -213,9 +372,13 @@ def predict():
         # --------------------------------------------------
 
         cleaned_text = re.sub(
+
             r"@\w+",
+
             " ",
+
             cleaned_text
+
         )
 
 
@@ -224,9 +387,13 @@ def predict():
         # --------------------------------------------------
 
         cleaned_text = re.sub(
+
             r"#(\w+)",
+
             r"\1",
+
             cleaned_text
+
         )
 
 
@@ -235,22 +402,30 @@ def predict():
         # --------------------------------------------------
 
         cleaned_text = (
+
             cleaned_text
+
             .replace(
                 "can't",
                 "cannot"
             )
+
             .replace(
                 "won't",
                 "will not"
             )
+
         )
 
 
         cleaned_text = re.sub(
+
             r"n't\b",
+
             " not",
+
             cleaned_text
+
         )
 
 
@@ -259,9 +434,13 @@ def predict():
         # --------------------------------------------------
 
         cleaned_text = re.sub(
+
             r"[^a-zA-Z\s]",
+
             " ",
+
             cleaned_text
+
         )
 
 
@@ -270,9 +449,13 @@ def predict():
         # --------------------------------------------------
 
         cleaned_text = re.sub(
+
             r"\s+",
+
             " ",
+
             cleaned_text
+
         ).strip()
 
 
@@ -309,12 +492,17 @@ def predict():
         # ==================================================
 
         confidence_percentage = float(
+
             round(
+
                 float(
                     max(probabilities)
                 ) * 100,
+
                 2
+
             )
+
         )
 
 
@@ -347,12 +535,15 @@ def predict():
 
 
         cur.execute(
+
             insert_query,
+
             (
                 text,
                 sentiment,
                 confidence_percentage
             )
+
         )
 
 
@@ -367,9 +558,11 @@ def predict():
 
             "success": True,
 
-            "text": text,
+            "text":
+                text,
 
-            "sentiment": sentiment,
+            "sentiment":
+                sentiment,
 
             "confidence":
                 confidence_percentage
@@ -380,7 +573,7 @@ def predict():
     except Exception as e:
 
         # ==================================================
-        # ROLLBACK DATABASE
+        # DATABASE ROLLBACK
         # ==================================================
 
         if conn:
@@ -407,7 +600,7 @@ def predict():
     finally:
 
         # ==================================================
-        # CLOSE DATABASE
+        # CLOSE DATABASE CONNECTION
         # ==================================================
 
         if cur:
@@ -433,6 +626,7 @@ def history():
 
     cur = None
 
+
     try:
 
         # ==================================================
@@ -452,10 +646,15 @@ def history():
             """
 
             SELECT
+
                 id,
+
                 tweet_text,
+
                 sentiment,
+
                 confidence,
+
                 created_at
 
             FROM predictions
@@ -475,7 +674,7 @@ def history():
 
 
         # ==================================================
-        # CONVERT TIME TO MYANMAR TIME
+        # CONVERT DATABASE TIME TO MYANMAR TIME
         # ==================================================
 
         for row in rows:
@@ -485,27 +684,30 @@ def history():
 
             if created_at:
 
-                # ------------------------------------------
-                # If PostgreSQL returns a naive datetime,
-                # treat it as UTC.
-                # ------------------------------------------
-
                 if created_at.tzinfo is None:
 
                     created_at = created_at.replace(
+
                         tzinfo=timezone.utc
+
                     )
 
 
                 created_at = created_at.astimezone(
+
                     MYANMAR_TZ
+
                 )
 
 
                 created_at_string = (
+
                     created_at.strftime(
+
                         "%Y-%m-%d %H:%M:%S"
+
                     )
+
                 )
 
             else:
@@ -525,8 +727,11 @@ def history():
                     row[2],
 
                 "confidence":
+
                     float(row[3])
+
                     if row[3] is not None
+
                     else 0,
 
                 "created_at":
@@ -560,10 +765,6 @@ def history():
 
     finally:
 
-        # ==================================================
-        # CLOSE DATABASE
-        # ==================================================
-
         if cur:
 
             cur.close()
@@ -575,7 +776,28 @@ def history():
 
 
 # ==========================================================
-# LIVE PREDICTION ANALYTICS API
+# COMBINED DATA ANALYTICS API
+# ==========================================================
+#
+# Dashboard analytics are calculated from:
+#
+#     1. Kaggle dataset
+#     2. User-submitted predictions
+#
+# Therefore:
+#
+#     Total Tweets =
+#         Kaggle Tweets + User Tweets
+#
+#     Positive =
+#         Kaggle Positive + User Positive
+#
+#     Negative =
+#         Kaggle Negative + User Negative
+#
+#     Neutral =
+#         Kaggle Neutral + User Neutral
+#
 # ==========================================================
 
 @app.route(
@@ -587,10 +809,180 @@ def analytics():
 
     cur = None
 
+
     try:
 
         # ==================================================
-        # DATABASE CONNECTION
+        # KAGGLE DATASET ANALYTICS
+        # ==================================================
+
+        if kaggle_df.empty:
+
+            kaggle_total = 0
+
+            kaggle_positive = 0
+
+            kaggle_negative = 0
+
+            kaggle_neutral = 0
+
+            kaggle_average_length = 0
+
+            kaggle_positive_length = 0
+
+            kaggle_negative_length = 0
+
+            kaggle_neutral_length = 0
+
+
+        else:
+
+            # ----------------------------------------------
+            # Total Kaggle tweets
+            # ----------------------------------------------
+
+            kaggle_total = int(
+                len(kaggle_df)
+            )
+
+
+            # ----------------------------------------------
+            # Sentiment counts
+            # ----------------------------------------------
+
+            kaggle_sentiment_counts = (
+
+                kaggle_df["sentiment"]
+
+                .value_counts()
+
+            )
+
+
+            kaggle_positive = int(
+
+                kaggle_sentiment_counts.get(
+
+                    "positive",
+
+                    0
+
+                )
+
+            )
+
+
+            kaggle_negative = int(
+
+                kaggle_sentiment_counts.get(
+
+                    "negative",
+
+                    0
+
+                )
+
+            )
+
+
+            kaggle_neutral = int(
+
+                kaggle_sentiment_counts.get(
+
+                    "neutral",
+
+                    0
+
+                )
+
+            )
+
+
+            # ----------------------------------------------
+            # Average tweet length
+            # ----------------------------------------------
+
+            kaggle_average_length = float(
+
+                round(
+
+                    kaggle_df[
+                        "tweet_length"
+                    ].mean(),
+
+                    2
+
+                )
+
+            )
+
+
+            # ----------------------------------------------
+            # Average length by sentiment
+            # ----------------------------------------------
+
+            kaggle_length_by_sentiment = (
+
+                kaggle_df
+
+                .groupby(
+                    "sentiment"
+                )[
+
+                    "tweet_length"
+
+                ]
+
+                .mean()
+
+                .round(2)
+
+                .to_dict()
+
+            )
+
+
+            kaggle_positive_length = float(
+
+                kaggle_length_by_sentiment.get(
+
+                    "positive",
+
+                    0
+
+                )
+
+            )
+
+
+            kaggle_negative_length = float(
+
+                kaggle_length_by_sentiment.get(
+
+                    "negative",
+
+                    0
+
+                )
+
+            )
+
+
+            kaggle_neutral_length = float(
+
+                kaggle_length_by_sentiment.get(
+
+                    "neutral",
+
+                    0
+
+                )
+
+            )
+
+
+        # ==================================================
+        # USER PREDICTION ANALYTICS
         # ==================================================
 
         conn = get_db_connection()
@@ -598,9 +990,9 @@ def analytics():
         cur = conn.cursor()
 
 
-        # ==================================================
-        # TOTAL TWEETS
-        # ==================================================
+        # --------------------------------------------------
+        # User prediction count
+        # --------------------------------------------------
 
         cur.execute(
             """
@@ -613,19 +1005,24 @@ def analytics():
         )
 
 
-        total_result = cur.fetchone()
+        user_total_result = cur.fetchone()
 
 
-        total_tweets = (
-            total_result[0]
-            if total_result
+        user_total = (
+
+            user_total_result[0]
+
+            if user_total_result
+            and user_total_result[0] is not None
+
             else 0
+
         )
 
 
-        # ==================================================
-        # SENTIMENT COUNTS
-        # ==================================================
+        # --------------------------------------------------
+        # User sentiment counts
+        # --------------------------------------------------
 
         cur.execute(
             """
@@ -633,15 +1030,23 @@ def analytics():
             SELECT
 
                 COUNT(*) FILTER (
+
                     WHERE LOWER(sentiment) = 'positive'
+
                 ) AS positive,
 
-                COUNT(*) FILTER (
-                    WHERE LOWER(sentiment) = 'negative'
-                ) AS negative,
 
                 COUNT(*) FILTER (
+
+                    WHERE LOWER(sentiment) = 'negative'
+
+                ) AS negative,
+
+
+                COUNT(*) FILTER (
+
                     WHERE LOWER(sentiment) = 'neutral'
+
                 ) AS neutral
 
             FROM predictions
@@ -650,60 +1055,260 @@ def analytics():
         )
 
 
-        sentiment_row = cur.fetchone()
+        user_sentiment_row = cur.fetchone()
 
 
-        positive = (
-            sentiment_row[0]
-            if sentiment_row
-            and sentiment_row[0] is not None
+        user_positive = (
+
+            user_sentiment_row[0]
+
+            if user_sentiment_row
+            and user_sentiment_row[0] is not None
+
             else 0
+
         )
 
 
-        negative = (
-            sentiment_row[1]
-            if sentiment_row
-            and sentiment_row[1] is not None
+        user_negative = (
+
+            user_sentiment_row[1]
+
+            if user_sentiment_row
+            and user_sentiment_row[1] is not None
+
             else 0
+
         )
 
 
-        neutral = (
-            sentiment_row[2]
-            if sentiment_row
-            and sentiment_row[2] is not None
+        user_neutral = (
+
+            user_sentiment_row[2]
+
+            if user_sentiment_row
+            and user_sentiment_row[2] is not None
+
             else 0
+
         )
 
 
         # ==================================================
-        # SENTIMENT PERCENTAGES
+        # USER AVERAGE TWEET LENGTH
+        # ==================================================
+
+        cur.execute(
+            """
+
+            SELECT
+
+                COALESCE(
+
+                    AVG(
+                        LENGTH(tweet_text)
+                    ),
+
+                    0
+
+                )
+
+            FROM predictions
+
+            """
+        )
+
+
+        user_average_result = cur.fetchone()
+
+
+        user_average_length = (
+
+            float(user_average_result[0])
+
+            if user_average_result
+            and user_average_result[0] is not None
+
+            else 0
+
+        )
+
+
+        # ==================================================
+        # USER AVERAGE LENGTH BY SENTIMENT
+        # ==================================================
+
+        cur.execute(
+            """
+
+            SELECT
+
+                COALESCE(
+
+                    AVG(
+                        LENGTH(tweet_text)
+                    ) FILTER (
+
+                        WHERE LOWER(sentiment) = 'positive'
+
+                    ),
+
+                    0
+
+                ) AS positive_length,
+
+
+                COALESCE(
+
+                    AVG(
+                        LENGTH(tweet_text)
+                    ) FILTER (
+
+                        WHERE LOWER(sentiment) = 'negative'
+
+                    ),
+
+                    0
+
+                ) AS negative_length,
+
+
+                COALESCE(
+
+                    AVG(
+                        LENGTH(tweet_text)
+                    ) FILTER (
+
+                        WHERE LOWER(sentiment) = 'neutral'
+
+                    ),
+
+                    0
+
+                ) AS neutral_length
+
+
+            FROM predictions
+
+            """
+        )
+
+
+        user_length_row = cur.fetchone()
+
+
+        user_positive_length = (
+
+            float(user_length_row[0])
+
+            if user_length_row
+            and user_length_row[0] is not None
+
+            else 0
+
+        )
+
+
+        user_negative_length = (
+
+            float(user_length_row[1])
+
+            if user_length_row
+            and user_length_row[1] is not None
+
+            else 0
+
+        )
+
+
+        user_neutral_length = (
+
+            float(user_length_row[2])
+
+            if user_length_row
+            and user_length_row[2] is not None
+
+            else 0
+
+        )
+
+
+        # ==================================================
+        # COMBINE KAGGLE + USER DATA
+        # ==================================================
+
+        total_tweets = (
+
+            kaggle_total
+            +
+            user_total
+
+        )
+
+
+        positive = (
+
+            kaggle_positive
+            +
+            user_positive
+
+        )
+
+
+        negative = (
+
+            kaggle_negative
+            +
+            user_negative
+
+        )
+
+
+        neutral = (
+
+            kaggle_neutral
+            +
+            user_neutral
+
+        )
+
+
+        # ==================================================
+        # COMBINED SENTIMENT PERCENTAGES
         # ==================================================
 
         if total_tweets > 0:
 
             positive_percentage = round(
+
                 positive /
                 total_tweets *
                 100,
+
                 2
+
             )
 
 
             negative_percentage = round(
+
                 negative /
                 total_tweets *
                 100,
+
                 2
+
             )
 
 
             neutral_percentage = round(
+
                 neutral /
                 total_tweets *
                 100,
+
                 2
+
             )
 
         else:
@@ -716,177 +1321,286 @@ def analytics():
 
 
         # ==================================================
-        # AVERAGE TWEET LENGTH
+        # COMBINED AVERAGE TWEET LENGTH
+        # ==================================================
+        #
+        # Weighted average:
+        #
+        # (Kaggle total characters +
+        #  User total characters)
+        #
+        # / Total tweets
+        #
         # ==================================================
 
-        cur.execute(
-            """
+        kaggle_total_characters = (
 
-            SELECT
+            kaggle_average_length
+            *
+            kaggle_total
 
-                COALESCE(
-                    ROUND(
-                        AVG(
-                            LENGTH(tweet_text)
-                        ),
-                        2
-                    ),
-                    0
+        )
+
+
+        user_total_characters = (
+
+            user_average_length
+            *
+            user_total
+
+        )
+
+
+        if total_tweets > 0:
+
+            combined_average_length = round(
+
+                (
+
+                    kaggle_total_characters
+                    +
+                    user_total_characters
+
                 )
+                /
+                total_tweets,
 
-            FROM predictions
+                2
 
-            """
-        )
+            )
 
+        else:
 
-        average_result = cur.fetchone()
-
-
-        average_tweet_length = (
-            average_result[0]
-            if average_result
-            and average_result[0] is not None
-            else 0
-        )
+            combined_average_length = 0
 
 
         # ==================================================
-        # AVERAGE LENGTH BY SENTIMENT
+        # COMBINED AVERAGE POSITIVE LENGTH
         # ==================================================
 
-        cur.execute(
-            """
+        total_positive_tweets = (
 
-            SELECT
+            kaggle_positive
+            +
+            user_positive
 
-                COALESCE(
-                    ROUND(
-                        AVG(
-                            LENGTH(tweet_text)
-                        ) FILTER (
-                            WHERE LOWER(sentiment) = 'positive'
-                        ),
-                        2
-                    ),
-                    0
-                ) AS positive_length,
-
-
-                COALESCE(
-                    ROUND(
-                        AVG(
-                            LENGTH(tweet_text)
-                        ) FILTER (
-                            WHERE LOWER(sentiment) = 'negative'
-                        ),
-                        2
-                    ),
-                    0
-                ) AS negative_length,
-
-
-                COALESCE(
-                    ROUND(
-                        AVG(
-                            LENGTH(tweet_text)
-                        ) FILTER (
-                            WHERE LOWER(sentiment) = 'neutral'
-                        ),
-                        2
-                    ),
-                    0
-                ) AS neutral_length
-
-            FROM predictions
-
-            """
         )
 
 
-        length_row = cur.fetchone()
+        positive_characters = (
 
+            kaggle_positive_length
+            *
+            kaggle_positive
 
-        average_positive_length = (
-            length_row[0]
-            if length_row
-            and length_row[0] is not None
-            else 0
+            +
+
+            user_positive_length
+            *
+            user_positive
+
         )
 
 
-        average_negative_length = (
-            length_row[1]
-            if length_row
-            and length_row[1] is not None
-            else 0
-        )
+        if total_positive_tweets > 0:
 
+            combined_positive_length = round(
 
-        average_neutral_length = (
-            length_row[2]
-            if length_row
-            and length_row[2] is not None
-            else 0
-        )
+                positive_characters
+                /
+                total_positive_tweets,
+
+                2
+
+            )
+
+        else:
+
+            combined_positive_length = 0
 
 
         # ==================================================
-        # RETURN ANALYTICS
+        # COMBINED AVERAGE NEGATIVE LENGTH
+        # ==================================================
+
+        total_negative_tweets = (
+
+            kaggle_negative
+            +
+            user_negative
+
+        )
+
+
+        negative_characters = (
+
+            kaggle_negative_length
+            *
+            kaggle_negative
+
+            +
+
+            user_negative_length
+            *
+            user_negative
+
+        )
+
+
+        if total_negative_tweets > 0:
+
+            combined_negative_length = round(
+
+                negative_characters
+                /
+                total_negative_tweets,
+
+                2
+
+            )
+
+        else:
+
+            combined_negative_length = 0
+
+
+        # ==================================================
+        # COMBINED AVERAGE NEUTRAL LENGTH
+        # ==================================================
+
+        total_neutral_tweets = (
+
+            kaggle_neutral
+            +
+            user_neutral
+
+        )
+
+
+        neutral_characters = (
+
+            kaggle_neutral_length
+            *
+            kaggle_neutral
+
+            +
+
+            user_neutral_length
+            *
+            user_neutral
+
+        )
+
+
+        if total_neutral_tweets > 0:
+
+            combined_neutral_length = round(
+
+                neutral_characters
+                /
+                total_neutral_tweets,
+
+                2
+
+            )
+
+        else:
+
+            combined_neutral_length = 0
+
+
+        # ==================================================
+        # RETURN COMBINED ANALYTICS
         # ==================================================
 
         return jsonify({
 
             "success": True,
 
+
+            # ------------------------------------------------
+            # Data sources
+            # ------------------------------------------------
+
             "data_source":
-                "User Submitted Tweets",
+                "Kaggle Dataset + User Submitted Tweets",
+
+
+            "kaggle_tweets":
+                int(kaggle_total),
+
+
+            "user_tweets":
+                int(user_total),
+
+
+            # ------------------------------------------------
+            # Combined totals
+            # ------------------------------------------------
 
             "total_tweets":
                 int(total_tweets),
 
+
             "positive":
                 int(positive),
+
 
             "negative":
                 int(negative),
 
+
             "neutral":
                 int(neutral),
+
+
+            # ------------------------------------------------
+            # Combined percentages
+            # ------------------------------------------------
 
             "positive_percentage":
                 float(
                     positive_percentage
                 ),
 
+
             "negative_percentage":
                 float(
                     negative_percentage
                 ),
+
 
             "neutral_percentage":
                 float(
                     neutral_percentage
                 ),
 
+
+            # ------------------------------------------------
+            # Combined tweet lengths
+            # ------------------------------------------------
+
             "average_tweet_length":
                 float(
-                    average_tweet_length
+                    combined_average_length
                 ),
+
 
             "average_length_positive":
                 float(
-                    average_positive_length
+                    combined_positive_length
                 ),
+
 
             "average_length_negative":
                 float(
-                    average_negative_length
+                    combined_negative_length
                 ),
+
 
             "average_length_neutral":
                 float(
-                    average_neutral_length
+                    combined_neutral_length
                 )
 
         })
@@ -912,10 +1626,6 @@ def analytics():
 
     finally:
 
-        # ==================================================
-        # CLOSE DATABASE
-        # ==================================================
-
         if cur:
 
             cur.close()
@@ -938,11 +1648,8 @@ def model_performance():
     # ======================================================
     # MODEL EVALUATION METRICS
     #
-    # These values come from the trained model's
-    # evaluation on the test dataset.
-    #
-    # They should NOT be calculated from individual
-    # tweets entered by users.
+    # These metrics were calculated using the test dataset.
+    # They are NOT affected by user predictions.
     # ======================================================
 
     return jsonify({
@@ -971,10 +1678,15 @@ def model_performance():
 if __name__ == "__main__":
 
     port = int(
+
         os.environ.get(
+
             "PORT",
+
             5000
+
         )
+
     )
 
 
