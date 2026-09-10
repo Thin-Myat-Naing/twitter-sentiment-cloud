@@ -708,441 +708,63 @@
            LOAD COMBINED DATASET ANALYTICS
         ================================================== */
 
-        async function loadAnalytics() {
+        /* ==================================================
+   LOAD MODEL PERFORMANCE
+================================================== */
 
-            try {
+async function loadModelPerformance() {
 
-                const response =
-                    await fetch("/api/analytics");
+    try {
 
-                const data =
-                    await response.json();
+        const response =
+            await fetch("/api/model-performance");
 
-                console.log("Analytics response:", data);
+        const data =
+            await response.json();
 
+        console.log("Model performance:", data);
 
-                if (!data.success) {
+        if (!data.success) {
 
-                    console.error(
-                        "Analytics error:",
-                        data.error
-                    );
+            console.error(
+                "Model performance error:",
+                data.error
+            );
 
-                    return;
-
-                }
-
-
-                /* ==================================================
-                   SUMMARY CARDS
-                ================================================== */
-
-                document.getElementById(
-                    "totalPredictions"
-                ).textContent =
-                    Number(
-                        data.total_tweets || 0
-                    ).toLocaleString();
-
-
-                document.getElementById(
-                    "positiveCount"
-                ).textContent =
-                    Number(
-                        data.positive || 0
-                    ).toLocaleString();
-
-
-                document.getElementById(
-                    "negativeCount"
-                ).textContent =
-                    Number(
-                        data.negative || 0
-                    ).toLocaleString();
-
-
-                document.getElementById(
-                    "neutralCount"
-                ).textContent =
-                    Number(
-                        data.neutral || 0
-                    ).toLocaleString();
-
-
-
-                /* ==================================================
-                   SENTIMENT PERCENTAGES
-                ================================================== */
-
-                document.getElementById(
-                    "positivePercentage"
-                ).textContent =
-                    Number(
-                        data.positive_percentage || 0
-                    ).toFixed(2) + "%";
-
-
-                document.getElementById(
-                    "negativePercentage"
-                ).textContent =
-                    Number(
-                        data.negative_percentage || 0
-                    ).toFixed(2) + "%";
-
-
-                document.getElementById(
-                    "neutralPercentage"
-                ).textContent =
-                    Number(
-                        data.neutral_percentage || 0
-                    ).toFixed(2) + "%";
-
-
-
-                /* ==================================================
-                   TWEET LENGTH
-                ================================================== */
-
-                document.getElementById(
-                    "averageTweetLength"
-                ).textContent =
-                    Number(
-                        data.average_tweet_length || 0
-                    ).toFixed(2);
-
-
-                document.getElementById(
-                    "averagePositiveLength"
-                ).textContent =
-                    Number(
-                        data.average_length_positive || 0
-                    ).toFixed(2);
-
-
-                document.getElementById(
-                    "averageNegativeLength"
-                ).textContent =
-                    Number(
-                        data.average_length_negative || 0
-                    ).toFixed(2);
-
-
-                document.getElementById(
-                    "averageNeutralLength"
-                ).textContent =
-                    Number(
-                        data.average_length_neutral || 0
-                    ).toFixed(2);
-
-
-
-                /* ==================================================
-                   SENTIMENT VALUES
-                ================================================== */
-
-                const positive =
-                    Number(data.positive || 0);
-
-                const negative =
-                    Number(data.negative || 0);
-
-                const neutral =
-                    Number(data.neutral || 0);
-
-                const total =
-                    positive +
-                    negative +
-                    neutral;
-
-
-
-                /* ==================================================
-                   GET CANVAS ELEMENTS
-                ================================================== */
-
-                const pieCanvas =
-                    document.getElementById(
-                        "sentimentPieChart"
-                    );
-
-                const barCanvas =
-                    document.getElementById(
-                        "sentimentBarChart"
-                    );
-
-
-                if (!pieCanvas || !barCanvas) {
-
-                    console.error(
-                        "Chart canvas elements not found."
-                    );
-
-                    return;
-
-                }
-
-
-
-                /* ==================================================
-                   DESTROY EXISTING CHARTS
-                ================================================== */
-
-                const existingPie =
-                    Chart.getChart(pieCanvas);
-
-                if (existingPie) {
-                    existingPie.destroy();
-                }
-
-
-                const existingBar =
-                    Chart.getChart(barCanvas);
-
-                if (existingBar) {
-                    existingBar.destroy();
-                }
-
-
-
-                /* ==================================================
-                   SENTIMENT DISTRIBUTION - DOUGHNUT
-                ================================================== */
-
-                new Chart(
-                    pieCanvas,
-                    {
-
-                        type: "doughnut",
-
-                        data: {
-
-                            labels: [
-                                "Positive",
-                                "Negative",
-                                "Neutral"
-                            ],
-
-                            datasets: [{
-
-                                data: [
-                                    positive,
-                                    negative,
-                                    neutral
-                                ],
-
-                                borderWidth: 2
-
-                            }]
-
-                        },
-
-                        options: {
-
-                            responsive: true,
-
-                            maintainAspectRatio: false,
-
-                            cutout: "55%",
-
-                            plugins: {
-
-                                legend: {
-
-                                    display: true,
-
-                                    position: "bottom",
-
-                                    labels: {
-
-                                        padding: 15,
-
-                                        font: {
-
-                                            size: 14
-
-                                        }
-
-                                    }
-
-                                },
-
-                                tooltip: {
-
-                                    callbacks: {
-
-                                        label: function(context) {
-
-                                            const value =
-                                                Number(
-                                                    context.raw || 0
-                                                );
-
-                                            const percentage =
-                                                total > 0
-                                                ?
-                                                (
-                                                    value /
-                                                    total *
-                                                    100
-                                                ).toFixed(2)
-                                                :
-                                                "0.00";
-
-                                            return (
-                                                context.label
-                                                + ": "
-                                                + value
-                                                + " tweets ("
-                                                + percentage
-                                                + "%)"
-                                            );
-
-                                        }
-
-                                    }
-
-                                }
-
-                            }
-
-                        }
-
-                    }
-                );
-
-
-
-                /* ==================================================
-                   SENTIMENT COMPARISON - BAR
-                ================================================== */
-
-                new Chart(
-                    barCanvas,
-                    {
-
-                        type: "bar",
-
-                        data: {
-
-                            labels: [
-                                "Positive",
-                                "Negative",
-                                "Neutral"
-                            ],
-
-                            datasets: [{
-
-                                label:
-                                    "Number of Tweets",
-
-                                data: [
-                                    positive,
-                                    negative,
-                                    neutral
-                                ],
-
-                                borderWidth: 1
-
-                            }]
-
-                        },
-
-                        options: {
-
-                            responsive: true,
-
-                            maintainAspectRatio: false,
-
-                            scales: {
-
-                                y: {
-
-                                    beginAtZero: true,
-
-                                    ticks: {
-
-                                        precision: 0
-
-                                    }
-
-                                }
-
-                            },
-
-                            plugins: {
-
-                                legend: {
-
-                                    display: false
-
-                                },
-
-                                tooltip: {
-
-                                    callbacks: {
-
-                                        label: function(context) {
-
-                                            const value =
-                                                Number(
-                                                    context.raw || 0
-                                                );
-
-                                            const percentage =
-                                                total > 0
-                                                ?
-                                                (
-                                                    value /
-                                                    total *
-                                                    100
-                                                ).toFixed(2)
-                                                :
-                                                "0.00";
-
-                                            return (
-                                                value
-                                                + " tweets ("
-                                                + percentage
-                                                + "%)"
-                                            );
-
-                                        }
-
-                                    }
-
-                                }
-
-                            }
-
-                        }
-
-                    }
-                );
-
-
-                console.log(
-                    "Charts created successfully:",
-                    {
-                        positive: positive,
-                        negative: negative,
-                        neutral: neutral,
-                        total: total
-                    }
-                );
-
-
-            }
-
-            catch (error) {
-
-                console.error(
-                    "Failed to load analytics:",
-                    error
-                );
-
-            }
-
+            return;
         }
+
+
+        // Accuracy
+        document.getElementById("accuracy").textContent =
+            Number(data.accuracy).toFixed(2) + "%";
+
+
+        // Precision
+        document.getElementById("precision").textContent =
+            Number(data.precision).toFixed(2) + "%";
+
+
+        // Recall
+        document.getElementById("recall").textContent =
+            Number(data.recall).toFixed(2) + "%";
+
+
+        // F1 Score
+        document.getElementById("f1Score").textContent =
+            Number(data.f1_score).toFixed(2) + "%";
+
+
+    }
+    catch (error) {
+
+        console.error(
+            "Failed to load model performance:",
+            error
+        );
+
+    }
+}
 
 
 
