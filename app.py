@@ -3,12 +3,14 @@ import joblib
 import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
+
 from sklearn.metrics import (
     accuracy_score,
     precision_score,
     recall_score,
     f1_score
 )
+
 
 # ==========================================================
 # FLASK APPLICATION
@@ -30,6 +32,7 @@ VECTORIZER_PATH = "models/tfidf_vectorizer.pkl"
 # ==========================================================
 
 try:
+
     model = joblib.load(MODEL_PATH)
     vectorizer = joblib.load(VECTORIZER_PATH)
 
@@ -37,6 +40,7 @@ try:
     print("TF-IDF vectorizer loaded successfully.")
 
 except Exception as e:
+
     model = None
     vectorizer = None
 
@@ -49,9 +53,6 @@ except Exception as e:
 # ==========================================================
 
 def get_db_connection():
-    """
-    Connect to Render PostgreSQL using DATABASE_URL.
-    """
 
     database_url = os.getenv("DATABASE_URL")
 
@@ -83,17 +84,24 @@ def setup_database():
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS predictions (
+
                 id SERIAL PRIMARY KEY,
+
                 tweet_text TEXT NOT NULL,
+
                 predicted_sentiment VARCHAR(20) NOT NULL,
+
                 actual_sentiment VARCHAR(20),
+
                 confidence DECIMAL(10, 4),
+
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+
             );
         """)
 
         # --------------------------------------------------
-        # Add new columns if the old table already exists
+        # Add columns if old table already exists
         # --------------------------------------------------
 
         cursor.execute("""
@@ -118,15 +126,43 @@ def setup_database():
         """)
 
         # --------------------------------------------------
-        # If old table used "sentiment", copy it to
-        # predicted_sentiment where necessary.
+        # Check whether old "sentiment" column exists
+        # --------------------------------------------------
+
+        cursor.execute("""
+            SELECT EXISTS (
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_name = 'predictions'
+                AND column_name = 'sentiment'
+            );
+        """)
+
+        old_sentiment_exists = cursor.fetchone()[0]
+
+        # --------------------------------------------------
+        # If old table has "sentiment", migrate it safely
+        # --------------------------------------------------
+
+        if old_sentiment_exists:
+
+            cursor.execute("""
+                UPDATE predictions
+                SET predicted_sentiment = sentiment
+                WHERE predicted_sentiment IS NULL
+                AND sentiment IS NOT NULL;
+            """)
+
+            print("Old sentiment data migrated.")
+
+        # --------------------------------------------------
+        # Give existing rows a current timestamp if missing
         # --------------------------------------------------
 
         cursor.execute("""
             UPDATE predictions
-            SET predicted_sentiment = sentiment
-            WHERE predicted_sentiment IS NULL
-              AND sentiment IS NOT NULL;
+            SET created_at = CURRENT_TIMESTAMP
+            WHERE created_at IS NULL;
         """)
 
         connection.commit()
@@ -155,11 +191,186 @@ def setup_database():
 # ==========================================================
 
 try:
+
     setup_database()
 
 except Exception as e:
+
     print("Database initialization failed:")
     print(e)
+
+
+# ==========================================================
+# CALCULATE ANALYTICS
+# ==========================================================
+
+def calculate_analytics():
+
+    connection = None
+    cursor = None
+
+    try:
+
+        connection = get_db_connection()
+
+        cursor = connection.cursor(
+            cursor_factory=RealDictCursor
+        )
+
+        # --------------------------------------------------
+        # Get only labelled predictions
+        # --------------------------------------------------
+
+        cursor.execute("""
+            SELECT
+                predicted_sentiment,
+                actual_sentiment
+            FROM predictions
+
+            WHERE actual_sentiment IS NOT NULL
+            AND actual_sentiment <> ''
+
+            ORDER BY id ASC;
+        """)
+
+        rows = cursor.fetchall()
+
+        # --------------------------------------------------
+        # No labelled predictions
+        # --------------------------------------------------
+
+        if not rows:
+
+            return {
+                "labelled_count": 0,
+                "accuracy": 0,
+                "precision": 0,
+                "recall": 0,
+                "f1_score": 0
+            }
+
+        # --------------------------------------------------
+        # Prepare data
+        # --------------------------------------------------
+
+        y_true = []
+        y_pred = []
+
+        for row in rows:
+
+            actual = str(
+                row["actual_sentiment"]
+            ).strip().capitalize()
+
+            predicted = str(
+                row["predicted_sentiment"]
+            ).strip().capitalize()
+
+            if actual in [
+                "Positive",
+                "Negative",
+                "Neutral"
+            ]:
+
+                y_true.append(actual)
+                y_pred.append(predicted)
+
+        # --------------------------------------------------
+        # Safety check
+        # --------------------------------------------------
+
+        if not y_true:
+
+            return {
+                "labelled_count": 0,
+                "accuracy": 0,
+                "precision": 0,
+                "recall": 0,
+                "f1_score": 0
+            }
+
+        # --------------------------------------------------
+        # Calculate Accuracy
+        # --------------------------------------------------
+
+        accuracy = accuracy_score(
+            y_true,
+            y_pred
+        )
+
+        # --------------------------------------------------
+        # Calculate Macro Precision
+        # --------------------------------------------------
+
+        precision = precision_score(
+            y_true,
+            y_pred,
+            labels=[
+                "Positive",
+                "Negative",
+                "Neutral"
+            ],
+            average="macro",
+            zero_division=0
+        )
+
+        # --------------------------------------------------
+        # Calculate Macro Recall
+        # --------------------------------------------------
+
+        recall = recall_score(
+            y_true,
+            y_pred,
+            labels=[
+                "Positive",
+                "Negative",
+                "Neutral"
+            ],
+            average="macro",
+            zero_division=0
+        )
+
+        # --------------------------------------------------
+        # Calculate Macro F1
+        # --------------------------------------------------
+
+        f1 = f1_score(
+            y_true,
+            y_pred,
+            labels=[
+                "Positive",
+                "Negative",
+                "Neutral"
+            ],
+            average="macro",
+            zero_division=0
+        )
+
+        return {
+
+            "labelled_count": len(y_true),
+
+            "accuracy":
+                round(accuracy * 100, 2),
+
+            "precision":
+                round(precision * 100, 2),
+
+            "recall":
+                round(recall * 100, 2),
+
+            "f1_score":
+                round(f1 * 100, 2)
+
+        }
+
+    finally:
+
+        if cursor:
+            cursor.close()
+
+        if connection:
+            connection.close()
 
 
 # ==========================================================
@@ -198,13 +409,16 @@ def predict():
         if model is None or vectorizer is None:
 
             return jsonify({
+
                 "success": False,
-                "error": "Sentiment model is not loaded."
+
+                "error":
+                    "Sentiment model is not loaded."
+
             }), 500
 
-
         # --------------------------------------------------
-        # Get JSON data
+        # Get JSON
         # --------------------------------------------------
 
         data = request.get_json()
@@ -212,18 +426,23 @@ def predict():
         if not data:
 
             return jsonify({
+
                 "success": False,
-                "error": "No data received."
+
+                "error":
+                    "No data received."
+
             }), 400
 
-
-        tweet_text = data.get("text", "").strip()
+        tweet_text = data.get(
+            "text",
+            ""
+        ).strip()
 
         actual_sentiment = data.get(
             "actual_sentiment",
             ""
         ).strip()
-
 
         # --------------------------------------------------
         # Validate tweet
@@ -232,15 +451,16 @@ def predict():
         if not tweet_text:
 
             return jsonify({
+
                 "success": False,
-                "error": "Please enter a tweet."
+
+                "error":
+                    "Please enter a tweet."
+
             }), 400
 
-
         # --------------------------------------------------
-        # Validate actual sentiment
-        #
-        # It is OPTIONAL.
+        # Actual sentiment is REQUIRED
         # --------------------------------------------------
 
         allowed_sentiments = [
@@ -249,55 +469,63 @@ def predict():
             "Neutral"
         ]
 
-        if actual_sentiment:
+        if not actual_sentiment:
 
-            # Normalize first letter/case
+            return jsonify({
 
-            actual_sentiment = actual_sentiment.capitalize()
+                "success": False,
 
-            if actual_sentiment not in allowed_sentiments:
+                "error":
+                    "Please select the actual sentiment."
 
-                return jsonify({
-                    "success": False,
-                    "error": (
-                        "Actual sentiment must be "
-                        "Positive, Negative, or Neutral."
-                    )
-                }), 400
+            }), 400
 
-        else:
+        actual_sentiment = (
+            actual_sentiment.capitalize()
+        )
 
-            actual_sentiment = None
+        if actual_sentiment not in allowed_sentiments:
 
+            return jsonify({
+
+                "success": False,
+
+                "error":
+                    "Actual sentiment must be "
+                    "Positive, Negative, or Neutral."
+
+            }), 400
 
         # ==================================================
         # TRANSFORM TEXT
         # ==================================================
 
-        text_vector = vectorizer.transform([tweet_text])
-
+        text_vector = vectorizer.transform(
+            [tweet_text]
+        )
 
         # ==================================================
         # PREDICT SENTIMENT
         # ==================================================
 
-        prediction = model.predict(text_vector)
+        prediction = model.predict(
+            text_vector
+        )
 
         predicted_sentiment = prediction[0]
 
+        if hasattr(
+            predicted_sentiment,
+            "item"
+        ):
 
-        # --------------------------------------------------
-        # Convert prediction to normal string
-        # --------------------------------------------------
-
-        if hasattr(predicted_sentiment, "item"):
-
-            predicted_sentiment = predicted_sentiment.item()
+            predicted_sentiment = (
+                predicted_sentiment.item()
+            )
 
         predicted_sentiment = str(
             predicted_sentiment
-        ).capitalize()
-
+        ).strip().capitalize()
 
         # ==================================================
         # CALCULATE CONFIDENCE
@@ -305,33 +533,37 @@ def predict():
 
         confidence = 0.0
 
-
         try:
 
-            if hasattr(model, "predict_proba"):
+            if hasattr(
+                model,
+                "predict_proba"
+            ):
 
-                probabilities = model.predict_proba(
-                    text_vector
+                probabilities = (
+                    model.predict_proba(
+                        text_vector
+                    )
                 )
 
-                confidence = float(
-                    max(probabilities[0])
-                ) * 100
-
-            else:
-
-                confidence = 0.0
+                confidence = (
+                    float(
+                        max(probabilities[0])
+                    ) * 100
+                )
 
         except Exception as e:
 
-            print("Confidence calculation error:")
+            print(
+                "Confidence calculation error:"
+            )
+
             print(e)
 
             confidence = 0.0
 
-
         # ==================================================
-        # SAVE PREDICTION TO POSTGRESQL
+        # SAVE TO POSTGRESQL
         # ==================================================
 
         connection = None
@@ -340,6 +572,7 @@ def predict():
         try:
 
             connection = get_db_connection()
+
             cursor = connection.cursor()
 
             cursor.execute("""
@@ -348,29 +581,51 @@ def predict():
                     tweet_text,
                     predicted_sentiment,
                     actual_sentiment,
-                    confidence
+                    confidence,
+                    created_at
                 )
-                VALUES (%s, %s, %s, %s)
+
+                VALUES
+                (
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    CURRENT_TIMESTAMP
+                );
             """, (
+
                 tweet_text,
+
                 predicted_sentiment,
+
                 actual_sentiment,
+
                 confidence
+
             ))
 
             connection.commit()
 
         except Exception as e:
 
-            print("Database insert error:")
+            print(
+                "Database insert error:"
+            )
+
             print(e)
 
             if connection:
                 connection.rollback()
 
             return jsonify({
+
                 "success": False,
-                "error": "Prediction was made, but could not be saved."
+
+                "error":
+                    "Prediction was made, "
+                    "but could not be saved."
+
             }), 500
 
         finally:
@@ -381,16 +636,22 @@ def predict():
             if connection:
                 connection.close()
 
+        # ==================================================
+        # CALCULATE UPDATED METRICS
+        # ==================================================
+
+        analytics_data = calculate_analytics()
 
         # ==================================================
-        # RETURN RESULT
+        # RETURN PREDICTION + METRICS
         # ==================================================
 
         return jsonify({
 
             "success": True,
 
-            "tweet": tweet_text,
+            "tweet":
+                tweet_text,
 
             "predicted_sentiment":
                 predicted_sentiment,
@@ -399,19 +660,54 @@ def predict():
                 actual_sentiment,
 
             "confidence":
-                round(confidence, 2)
+                round(confidence, 2),
+
+            # ----------------------------------------------
+            # UPDATED METRICS
+            # ----------------------------------------------
+
+            "labelled_count":
+                analytics_data[
+                    "labelled_count"
+                ],
+
+            "accuracy":
+                analytics_data[
+                    "accuracy"
+                ],
+
+            "precision":
+                analytics_data[
+                    "precision"
+                ],
+
+            "recall":
+                analytics_data[
+                    "recall"
+                ],
+
+            "f1_score":
+                analytics_data[
+                    "f1_score"
+                ]
 
         })
 
-
     except Exception as e:
 
-        print("Prediction error:")
+        print(
+            "Prediction error:"
+        )
+
         print(e)
 
         return jsonify({
+
             "success": False,
-            "error": str(e)
+
+            "error":
+                str(e)
+
         }), 500
 
 
@@ -441,17 +737,15 @@ def prediction_history():
                 actual_sentiment,
                 confidence,
                 created_at
+
             FROM predictions
+
             ORDER BY id DESC
+
             LIMIT 100;
         """)
 
         rows = cursor.fetchall()
-
-
-        # --------------------------------------------------
-        # Convert PostgreSQL data into JSON-safe format
-        # --------------------------------------------------
 
         history = []
 
@@ -459,35 +753,45 @@ def prediction_history():
 
             item = dict(row)
 
-            if item.get("confidence") is not None:
+            if item.get(
+                "confidence"
+            ) is not None:
 
                 item["confidence"] = float(
                     item["confidence"]
                 )
 
-            if item.get("created_at") is not None:
+            if item.get(
+                "created_at"
+            ) is not None:
 
                 item["created_at"] = (
                     item["created_at"]
-                    .strftime("%Y-%m-%d %H:%M:%S")
+                    .strftime(
+                        "%Y-%m-%d %H:%M:%S"
+                    )
                 )
 
             history.append(item)
 
-
         return jsonify(history)
-
 
     except Exception as e:
 
-        print("History error:")
+        print(
+            "History error:"
+        )
+
         print(e)
 
         return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
 
+            "success": False,
+
+            "error":
+                str(e)
+
+        }), 500
 
     finally:
 
@@ -499,16 +803,21 @@ def prediction_history():
 
 
 # ==========================================================
-# ANALYTICS / MODEL EVALUATION
+# ANALYTICS API
 # ==========================================================
 
 @app.route("/api/analytics")
 def analytics():
 
-    connection = None
-    cursor = None
-
     try:
+
+        analytics_data = (
+            calculate_analytics()
+        )
+
+        # --------------------------------------------------
+        # Sentiment distribution
+        # --------------------------------------------------
 
         connection = get_db_connection()
 
@@ -516,225 +825,136 @@ def analytics():
             cursor_factory=RealDictCursor
         )
 
-
-        # --------------------------------------------------
-        # Only use records where the user provided
-        # an actual sentiment.
-        # --------------------------------------------------
-
         cursor.execute("""
             SELECT
-                predicted_sentiment,
-                actual_sentiment
+                actual_sentiment,
+                COUNT(*) AS count
+
             FROM predictions
+
             WHERE actual_sentiment IS NOT NULL
-              AND actual_sentiment <> '';
+            AND actual_sentiment <> ''
+
+            GROUP BY actual_sentiment;
         """)
 
         rows = cursor.fetchall()
 
+        cursor.close()
+        connection.close()
 
-        # --------------------------------------------------
-        # No labelled data yet
-        # --------------------------------------------------
+        sentiment_counts = {
 
-        if not rows:
+            "Positive": 0,
 
-            return jsonify({
+            "Negative": 0,
 
-                "success": True,
+            "Neutral": 0
 
-                "labelled_count": 0,
-
-                "accuracy": 0,
-
-                "precision": 0,
-
-                "recall": 0,
-
-                "f1_score": 0,
-
-                "message":
-                    "Please provide actual sentiment for predictions."
-
-            })
-
-
-        # --------------------------------------------------
-        # Prepare actual and predicted labels
-        # --------------------------------------------------
-
-        y_true = []
-
-        y_pred = []
-
+        }
 
         for row in rows:
 
-            actual = str(
+            sentiment = str(
                 row["actual_sentiment"]
-            ).strip().capitalize()
-
-            predicted = str(
-                row["predicted_sentiment"]
-            ).strip().capitalize()
-
-
-            y_true.append(actual)
-            y_pred.append(predicted)
-
-
-        # ==================================================
-        # CALCULATE METRICS
-        # ==================================================
-
-        accuracy = accuracy_score(
-            y_true,
-            y_pred
-        )
-
-
-        precision = precision_score(
-            y_true,
-            y_pred,
-            labels=[
-                "Positive",
-                "Negative",
-                "Neutral"
-            ],
-            average="macro",
-            zero_division=0
-        )
-
-
-        recall = recall_score(
-            y_true,
-            y_pred,
-            labels=[
-                "Positive",
-                "Negative",
-                "Neutral"
-            ],
-            average="macro",
-            zero_division=0
-        )
-
-
-        f1 = f1_score(
-            y_true,
-            y_pred,
-            labels=[
-                "Positive",
-                "Negative",
-                "Neutral"
-            ],
-            average="macro",
-            zero_division=0
-        )
-
-
-        # ==================================================
-        # SENTIMENT DISTRIBUTION
-        # ==================================================
-
-        sentiment_counts = {
-            "Positive": 0,
-            "Negative": 0,
-            "Neutral": 0
-        }
-
-
-        for sentiment in y_true:
+            ).capitalize()
 
             if sentiment in sentiment_counts:
 
-                sentiment_counts[sentiment] += 1
+                sentiment_counts[
+                    sentiment
+                ] = int(row["count"])
 
-
-        total = len(y_true)
-
+        total = sum(
+            sentiment_counts.values()
+        )
 
         sentiment_distribution = {}
 
-        for sentiment, count in sentiment_counts.items():
+        for sentiment, count in (
+            sentiment_counts.items()
+        ):
 
-            if total > 0:
+            percentage = (
+                (count / total) * 100
+                if total > 0
+                else 0
+            )
 
-                percentage = (
-                    count / total
-                ) * 100
-
-            else:
-
-                percentage = 0
-
-
-            sentiment_distribution[sentiment] = {
+            sentiment_distribution[
+                sentiment
+            ] = {
 
                 "count": count,
 
                 "percentage":
-                    round(percentage, 2)
+                    round(
+                        percentage,
+                        2
+                    )
 
             }
-
-
-        # ==================================================
-        # RETURN ANALYTICS
-        # ==================================================
 
         return jsonify({
 
             "success": True,
 
-            "labelled_count": total,
+            "labelled_count":
+                analytics_data[
+                    "labelled_count"
+                ],
 
             "accuracy":
-                round(accuracy * 100, 2),
+                analytics_data[
+                    "accuracy"
+                ],
 
             "precision":
-                round(precision * 100, 2),
+                analytics_data[
+                    "precision"
+                ],
 
             "recall":
-                round(recall * 100, 2),
+                analytics_data[
+                    "recall"
+                ],
 
             "f1_score":
-                round(f1 * 100, 2),
+                analytics_data[
+                    "f1_score"
+                ],
 
             "sentiment_distribution":
                 sentiment_distribution
 
         })
 
-
     except Exception as e:
 
-        print("Analytics error:")
+        print(
+            "Analytics error:"
+        )
+
         print(e)
 
         return jsonify({
 
             "success": False,
 
-            "error": str(e)
+            "error":
+                str(e)
 
         }), 500
-
-
-    finally:
-
-        if cursor:
-            cursor.close()
-
-        if connection:
-            connection.close()
 
 
 # ==========================================================
 # DELETE ALL PREDICTION HISTORY
 # ==========================================================
 
-@app.route("/api/history/delete", methods=["DELETE"])
+@app.route(
+    "/api/history/delete",
+    methods=["DELETE"]
+)
 def delete_history():
 
     connection = None
@@ -752,7 +972,6 @@ def delete_history():
 
         connection.commit()
 
-
         return jsonify({
 
             "success": True,
@@ -762,24 +981,25 @@ def delete_history():
 
         })
 
-
     except Exception as e:
 
-        print("Delete history error:")
+        print(
+            "Delete history error:"
+        )
+
         print(e)
 
         if connection:
             connection.rollback()
 
-
         return jsonify({
 
             "success": False,
 
-            "error": str(e)
+            "error":
+                str(e)
 
         }), 500
-
 
     finally:
 
@@ -799,7 +1019,8 @@ def health():
 
     return jsonify({
 
-        "status": "ok",
+        "status":
+            "ok",
 
         "model_loaded":
             model is not None,
@@ -817,12 +1038,16 @@ def health():
 if __name__ == "__main__":
 
     app.run(
+
         host="0.0.0.0",
+
         port=int(
             os.environ.get(
                 "PORT",
                 5000
             )
         ),
+
         debug=False
+
     )

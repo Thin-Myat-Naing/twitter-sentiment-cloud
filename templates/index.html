@@ -19,13 +19,131 @@
         href="{{ url_for('static', filename='css/style.css') }}"
     >
 
+    <style>
+
+        /* ==================================================
+           METRICS
+           ================================================== */
+
+        .metrics {
+
+            display: grid;
+
+            grid-template-columns:
+                repeat(4, 1fr);
+
+            gap: 15px;
+
+            margin-top: 25px;
+
+        }
+
+        .metric-card {
+
+            background: #ffffff;
+
+            border-radius: 12px;
+
+            padding: 20px;
+
+            text-align: center;
+
+            box-shadow:
+                0 3px 10px
+                rgba(0, 0, 0, 0.08);
+
+        }
+
+        .metric-card h3 {
+
+            margin: 0 0 10px 0;
+
+            font-size: 15px;
+
+            color: #666;
+
+        }
+
+        .metric-value {
+
+            font-size: 28px;
+
+            font-weight: bold;
+
+            color: #222;
+
+        }
+
+        .labelled-count {
+
+            text-align: center;
+
+            margin-top: 15px;
+
+            color: #666;
+
+            font-size: 14px;
+
+        }
+
+        /* ==================================================
+           ACTUAL SENTIMENT
+           ================================================== */
+
+        .actual-label {
+
+            display: block;
+
+            margin-top: 20px;
+
+            margin-bottom: 8px;
+
+            font-weight: 600;
+
+        }
+
+        #actualSentiment {
+
+            width: 100%;
+
+            padding: 12px;
+
+            border-radius: 8px;
+
+            border: 1px solid #ccc;
+
+            font-size: 15px;
+
+            background: white;
+
+        }
+
+        /* ==================================================
+           RESPONSIVE
+           ================================================== */
+
+        @media (max-width: 768px) {
+
+            .metrics {
+
+                grid-template-columns:
+                    repeat(2, 1fr);
+
+            }
+
+        }
+
+    </style>
+
 </head>
 
 
 <body>
 
 
-    <!-- Navigation -->
+    <!-- ==================================================
+         NAVIGATION
+         ================================================== -->
 
     <nav>
 
@@ -48,7 +166,9 @@
     </nav>
 
 
-    <!-- Main Content -->
+    <!-- ==================================================
+         MAIN CONTENT
+         ================================================== -->
 
     <main>
 
@@ -59,7 +179,7 @@
             </h1>
 
             <p>
-                Enter a tweet and let the Spark ML model
+                Enter a tweet and let the ML model
                 predict its sentiment.
             </p>
 
@@ -68,9 +188,17 @@
 
         <section class="card">
 
+
+            <!-- ==================================================
+                 TWEET INPUT
+                 ================================================== -->
+
             <label for="tweet">
+
                 Enter Tweet
+
             </label>
+
 
             <textarea
                 id="tweet"
@@ -78,25 +206,74 @@
             ></textarea>
 
 
+            <!-- ==================================================
+                 ACTUAL SENTIMENT
+                 ================================================== -->
+
+            <label
+                for="actualSentiment"
+                class="actual-label"
+            >
+
+                Actual Sentiment
+
+            </label>
+
+
+            <select
+                id="actualSentiment"
+            >
+
+                <option value="">
+                    Select actual sentiment
+                </option>
+
+                <option value="Positive">
+                    Positive
+                </option>
+
+                <option value="Negative">
+                    Negative
+                </option>
+
+                <option value="Neutral">
+                    Neutral
+                </option>
+
+            </select>
+
+
+            <!-- ==================================================
+                 ANALYZE BUTTON
+                 ================================================== -->
+
             <button
                 id="analyzeButton"
                 onclick="analyzeTweet()"
             >
+
                 Analyze Sentiment
+
             </button>
 
 
-            <!-- Loading -->
+            <!-- ==================================================
+                 LOADING
+                 ================================================== -->
 
             <div
                 id="loading"
                 class="hidden"
             >
+
                 Analyzing...
+
             </div>
 
 
-            <!-- Result -->
+            <!-- ==================================================
+                 RESULT
+                 ================================================== -->
 
             <div
                 id="result"
@@ -107,6 +284,7 @@
                     Prediction Result
                 </h2>
 
+
                 <p>
 
                     <strong>
@@ -114,6 +292,18 @@
                     </strong>
 
                     <span id="sentiment">
+                    </span>
+
+                </p>
+
+
+                <p>
+
+                    <strong>
+                        Actual Sentiment:
+                    </strong>
+
+                    <span id="actualResult">
                     </span>
 
                 </p>
@@ -133,7 +323,98 @@
             </div>
 
 
-            <!-- Error -->
+            <!-- ==================================================
+                 METRICS
+                 ================================================== -->
+
+            <div
+                id="metrics"
+                class="metrics"
+            >
+
+                <div class="metric-card">
+
+                    <h3>
+                        Accuracy
+                    </h3>
+
+                    <div
+                        id="accuracy"
+                        class="metric-value"
+                    >
+                        0%
+                    </div>
+
+                </div>
+
+
+                <div class="metric-card">
+
+                    <h3>
+                        Precision
+                    </h3>
+
+                    <div
+                        id="precision"
+                        class="metric-value"
+                    >
+                        0%
+                    </div>
+
+                </div>
+
+
+                <div class="metric-card">
+
+                    <h3>
+                        Recall
+                    </h3>
+
+                    <div
+                        id="recall"
+                        class="metric-value"
+                    >
+                        0%
+                    </div>
+
+                </div>
+
+
+                <div class="metric-card">
+
+                    <h3>
+                        F1 Score
+                    </h3>
+
+                    <div
+                        id="f1Score"
+                        class="metric-value"
+                    >
+                        0%
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ==================================================
+                 LABELLED COUNT
+                 ================================================== -->
+
+            <div
+                id="labelledCount"
+                class="labelled-count"
+            >
+
+                Labelled predictions: 0
+
+            </div>
+
+
+            <!-- ==================================================
+                 ERROR
+                 ================================================== -->
 
             <div
                 id="error"
@@ -141,14 +422,263 @@
             >
             </div>
 
+
         </section>
 
     </main>
 
 
-    <script
-        src="{{ url_for('static', filename='js/app.js') }}"
-    ></script>
+    <!-- ==================================================
+         JAVASCRIPT
+         ================================================== -->
+
+    <script>
+
+        async function analyzeTweet() {
+
+            const tweetInput =
+                document.getElementById(
+                    "tweet"
+                );
+
+            const actualInput =
+                document.getElementById(
+                    "actualSentiment"
+                );
+
+            const button =
+                document.getElementById(
+                    "analyzeButton"
+                );
+
+            const loading =
+                document.getElementById(
+                    "loading"
+                );
+
+            const result =
+                document.getElementById(
+                    "result"
+                );
+
+            const error =
+                document.getElementById(
+                    "error"
+                );
+
+
+            const tweet =
+                tweetInput.value.trim();
+
+            const actualSentiment =
+                actualInput.value;
+
+
+            // ==================================================
+            // VALIDATE TWEET
+            // ==================================================
+
+            if (!tweet) {
+
+                error.textContent =
+                    "Please enter a tweet.";
+
+                error.classList.remove(
+                    "hidden"
+                );
+
+                return;
+            }
+
+
+            // ==================================================
+            // VALIDATE ACTUAL SENTIMENT
+            // ==================================================
+
+            if (!actualSentiment) {
+
+                error.textContent =
+                    "Please select the actual sentiment.";
+
+                error.classList.remove(
+                    "hidden"
+                );
+
+                return;
+            }
+
+
+            // ==================================================
+            // RESET UI
+            // ==================================================
+
+            error.classList.add(
+                "hidden"
+            );
+
+            result.classList.add(
+                "hidden"
+            );
+
+            loading.classList.remove(
+                "hidden"
+            );
+
+            button.disabled = true;
+
+
+            try {
+
+                // ==================================================
+                // SEND TO FLASK
+                // ==================================================
+
+                const response =
+                    await fetch(
+                        "/predict",
+                        {
+
+                            method: "POST",
+
+                            headers: {
+
+                                "Content-Type":
+                                    "application/json"
+
+                            },
+
+                            body: JSON.stringify({
+
+                                text: tweet,
+
+                                actual_sentiment:
+                                    actualSentiment
+
+                            })
+
+                        }
+                    );
+
+
+                const data =
+                    await response.json();
+
+
+                // ==================================================
+                // HANDLE ERROR
+                // ==================================================
+
+                if (!response.ok ||
+                    !data.success) {
+
+                    throw new Error(
+                        data.error ||
+                        "Prediction failed."
+                    );
+
+                }
+
+
+                // ==================================================
+                // SHOW PREDICTION
+                // ==================================================
+
+                document.getElementById(
+                    "sentiment"
+                ).textContent =
+                    data.predicted_sentiment;
+
+
+                document.getElementById(
+                    "actualResult"
+                ).textContent =
+                    data.actual_sentiment;
+
+
+                document.getElementById(
+                    "confidence"
+                ).textContent =
+                    data.confidence + "%";
+
+
+                // ==================================================
+                // SHOW UPDATED METRICS
+                // ==================================================
+
+                document.getElementById(
+                    "accuracy"
+                ).textContent =
+                    data.accuracy + "%";
+
+
+                document.getElementById(
+                    "precision"
+                ).textContent =
+                    data.precision + "%";
+
+
+                document.getElementById(
+                    "recall"
+                ).textContent =
+                    data.recall + "%";
+
+
+                document.getElementById(
+                    "f1Score"
+                ).textContent =
+                    data.f1_score + "%";
+
+
+                document.getElementById(
+                    "labelledCount"
+                ).textContent =
+                    "Labelled predictions: " +
+                    data.labelled_count;
+
+
+                // ==================================================
+                // SHOW RESULT
+                // ==================================================
+
+                result.classList.remove(
+                    "hidden"
+                );
+
+
+                // ==================================================
+                // CLEAR TWEET
+                // ==================================================
+
+                tweetInput.value = "";
+
+                actualInput.value = "";
+
+
+            } catch (err) {
+
+                console.error(err);
+
+                error.textContent =
+                    err.message ||
+                    "Something went wrong.";
+
+                error.classList.remove(
+                    "hidden"
+                );
+
+            } finally {
+
+                loading.classList.add(
+                    "hidden"
+                );
+
+                button.disabled = false;
+
+            }
+
+        }
+
+    </script>
 
 
 </body>
