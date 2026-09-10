@@ -239,67 +239,46 @@ button:hover {
     display: none;
 }
 
-.analytics-section {
-    padding: 30px;
-}
-
-.analytics-cards {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 20px;
-    margin: 25px 0;
-}
-
-.analytics-card {
-    background: white;
-    padding: 20px;
-    border-radius: 12px;
-    text-align: center;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
-}
-
-.analytics-card h3 {
-    margin-bottom: 10px;
-}
-
-.analytics-card p {
-    font-size: 32px;
-    font-weight: bold;
-    margin: 5px;
-}
-
-.analytics-card span {
-    font-size: 14px;
-}
-
-.confidence-card {
-    background: white;
-    padding: 20px;
-    margin-bottom: 25px;
-    border-radius: 12px;
-    text-align: center;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
-}
-
-.confidence-card p {
-    font-size: 28px;
-    font-weight: bold;
-}
+/* =====================================================
+   CHARTS
+===================================================== */
 
 .charts-container {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 25px;
+    margin-top: 30px;
 }
 
 .chart-card {
-    background: white;
+    position: relative;
+    min-height: 400px;
     padding: 25px;
-    border-radius: 12px;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
 }
 
-.chart-card h3 {
-    text-align: center;
-    margin-bottom: 20px;
+.chart-card canvas {
+    width: 100% !important;
+    height: 320px !important;
+    display: block;
+}
+
+
+/* =====================================================
+   MOBILE
+===================================================== */
+
+@media (max-width: 768px) {
+
+    .charts-container {
+        grid-template-columns: 1fr;
+    }
+
+    .chart-card {
+        min-height: 350px;
+    }
+
+    .chart-card canvas {
+        height: 280px !important;
+    }
+
 }
