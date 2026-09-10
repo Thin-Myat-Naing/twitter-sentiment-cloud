@@ -304,104 +304,231 @@
 
 
         <!-- =================================================
-             MODEL PERFORMANCE
-        ================================================== -->
+     MODEL PERFORMANCE
+================================================== -->
 
-        <section class="analytics-section">
+<section class="analytics-section">
 
-            <h2>
-                Model Performance
-            </h2>
+    <h2>
+        Model Performance
+    </h2>
 
-            <p class="analytics-description">
-                Performance of the trained sentiment classification
-                model evaluated on the test dataset.
+    <p class="analytics-description">
+        Model performance is calculated by comparing the model's
+        predicted sentiment with the corresponding actual sentiment.
+    </p>
+
+
+    <!-- =================================================
+         KAGGLE PERFORMANCE
+    ================================================== -->
+
+    <h3 style="margin-top: 30px;">
+        Kaggle Dataset Performance
+    </h3>
+
+    <p class="analytics-description">
+        Performance calculated from the labelled Kaggle dataset.
+    </p>
+
+
+    <div class="analytics-cards">
+
+        <!-- Accuracy -->
+
+        <div class="analytics-card">
+
+            <h3>
+                Accuracy
+            </h3>
+
+            <p id="kaggleAccuracy">
+                N/A
             </p>
 
+            <span>
+                Overall Correctness
+            </span>
 
-            <div class="analytics-cards">
-
-
-                <!-- Accuracy -->
-
-                <div class="analytics-card">
-
-                    <h3>
-                        Accuracy
-                    </h3>
-
-                    <p id="accuracy">
-                        0%
-                    </p>
-
-                    <span>
-                        Overall Correctness
-                    </span>
-
-                </div>
+        </div>
 
 
-                <!-- Precision -->
+        <!-- Precision -->
 
-                <div class="analytics-card">
+        <div class="analytics-card">
 
-                    <h3>
-                        Precision
-                    </h3>
+            <h3>
+                Precision
+            </h3>
 
-                    <p id="precision">
-                        0%
-                    </p>
+            <p id="kagglePrecision">
+                N/A
+            </p>
 
-                    <span>
-                        Positive Prediction Quality
-                    </span>
+            <span>
+                Prediction Quality
+            </span>
 
-                </div>
-
-
-                <!-- Recall -->
-
-                <div class="analytics-card">
-
-                    <h3>
-                        Recall
-                    </h3>
-
-                    <p id="recall">
-                        0%
-                    </p>
-
-                    <span>
-                        Detection Rate
-                    </span>
-
-                </div>
+        </div>
 
 
-                <!-- F1 Score -->
+        <!-- Recall -->
 
-                <div class="analytics-card">
+        <div class="analytics-card">
 
-                    <h3>
-                        F1-Score
-                    </h3>
+            <h3>
+                Recall
+            </h3>
 
-                    <p id="f1Score">
-                        0%
-                    </p>
+            <p id="kaggleRecall">
+                N/A
+            </p>
 
-                    <span>
-                        Balanced Performance
-                    </span>
+            <span>
+                Detection Rate
+            </span>
 
-                </div>
-
-
-            </div>
+        </div>
 
 
-        </section>
+        <!-- F1 -->
+
+        <div class="analytics-card">
+
+            <h3>
+                F1-Score
+            </h3>
+
+            <p id="kaggleF1">
+                N/A
+            </p>
+
+            <span>
+                Balanced Performance
+            </span>
+
+        </div>
+
+    </div>
+
+
+    <!-- =================================================
+         USER PERFORMANCE
+    ================================================== -->
+
+    <h3 style="margin-top: 40px;">
+        User-Labelled Data Performance
+    </h3>
+
+    <p class="analytics-description">
+        Performance is recalculated using only submitted tweets
+        where an actual sentiment has been provided.
+        Unlabelled tweets are not included.
+    </p>
+
+
+    <div class="analytics-cards">
+
+        <!-- Accuracy -->
+
+        <div class="analytics-card">
+
+            <h3>
+                Accuracy
+            </h3>
+
+            <p id="userAccuracy">
+                N/A
+            </p>
+
+            <span id="userAccuracyDescription">
+                No labelled data
+            </span>
+
+        </div>
+
+
+        <!-- Precision -->
+
+        <div class="analytics-card">
+
+            <h3>
+                Precision
+            </h3>
+
+            <p id="userPrecision">
+                N/A
+            </p>
+
+            <span>
+                Prediction Quality
+            </span>
+
+        </div>
+
+
+        <!-- Recall -->
+
+        <div class="analytics-card">
+
+            <h3>
+                Recall
+            </h3>
+
+            <p id="userRecall">
+                N/A
+            </p>
+
+            <span>
+                Detection Rate
+            </span>
+
+        </div>
+
+
+        <!-- F1 -->
+
+        <div class="analytics-card">
+
+            <h3>
+                F1-Score
+            </h3>
+
+            <p id="userF1">
+                N/A
+            </p>
+
+            <span>
+                Balanced Performance
+            </span>
+
+        </div>
+
+    </div>
+
+
+    <!-- =================================================
+         LABELLED DATA COUNT
+    ================================================== -->
+
+    <div
+        style="
+            margin-top:20px;
+            text-align:center;
+            color:#64748b;
+            font-size:14px;
+        "
+    >
+
+        User-labelled tweets used for evaluation:
+
+        <strong id="userLabeledTweets">
+            0
+        </strong>
+
+    </div>
+
+</section>
 
 
 
@@ -476,6 +603,8 @@
 
     <script>
 
+        let pieChartInstance = null;
+        let barChartInstance = null;
 
         /* ==================================================
            ESCAPE HTML
@@ -705,6 +834,81 @@
 
 
         /* ==================================================
+           RENDER SENTIMENT CHARTS
+        ================================================== */
+
+        function renderCharts(data) {
+
+            const positive = data.positive || 0;
+            const negative = data.negative || 0;
+            const neutral = data.neutral || 0;
+
+            const colors = {
+                positive: "#22c55e",
+                negative: "#ef4444",
+                neutral: "#64748b"
+            };
+
+            // 1. Doughnut / Pie Chart
+            const pieCtx = document.getElementById("sentimentPieChart").getContext("2d");
+
+            if (pieChartInstance) {
+                pieChartInstance.destroy();
+            }
+
+            pieChartInstance = new Chart(pieCtx, {
+                type: "doughnut",
+                data: {
+                    labels: ["Positive", "Negative", "Neutral"],
+                    datasets: [{
+                        data: [positive, negative, neutral],
+                        backgroundColor: [colors.positive, colors.negative, colors.neutral]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+
+            // 2. Bar Chart
+            const barCtx = document.getElementById("sentimentBarChart").getContext("2d");
+
+            if (barChartInstance) {
+                barChartInstance.destroy();
+            }
+
+            barChartInstance = new Chart(barCtx, {
+                type: "bar",
+                data: {
+                    labels: ["Positive", "Negative", "Neutral"],
+                    datasets: [{
+                        label: "Tweet Count",
+                        data: [positive, negative, neutral],
+                        backgroundColor: [colors.positive, colors.negative, colors.neutral]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+        }
+
+
+
+        /* ==================================================
            LOAD COMBINED DATASET ANALYTICS
         ================================================== */
 
@@ -766,6 +970,10 @@
                 document.getElementById("averageNeutralLength").textContent =
                     data.average_length_neutral;
 
+
+                // Render Charts
+                renderCharts(data);
+
             }
 
             catch (error) {
@@ -782,73 +990,186 @@
 
 
         /* ==================================================
-           LOAD MODEL PERFORMANCE
+   LOAD MODEL PERFORMANCE
+================================================== */
+
+async function loadModelPerformance() {
+
+    try {
+
+        const response =
+            await fetch("/api/model-performance");
+
+        const data =
+            await response.json();
+
+        console.log(
+            "Model performance:",
+            data
+        );
+
+
+        if (!data.success) {
+
+            console.error(
+                "Model performance error:",
+                data.error
+            );
+
+            return;
+        }
+
+
+        /* ==================================================
+           HELPER FUNCTION
         ================================================== */
 
-        async function loadModelPerformance() {
+        function formatMetric(value) {
 
-            try {
+            if (
+                value === null ||
+                value === undefined
+            ) {
 
-                const response =
-                    await fetch("/api/model-performance");
-
-                const data =
-                    await response.json();
-
-                console.log("Model performance:", data);
-
-                if (!data.success) {
-
-                    console.error(
-                        "Model performance error:",
-                        data.error
-                    );
-
-                    return;
-
-                }
-
-
-                // Accuracy
-                document.getElementById("accuracy").textContent =
-                    (data.kaggle_accuracy !== null && data.kaggle_accuracy !== undefined)
-                    ? Number(data.kaggle_accuracy).toFixed(2) + "%"
-                    : "N/A";
-
-
-                // Precision
-                document.getElementById("precision").textContent =
-                    (data.kaggle_precision !== null && data.kaggle_precision !== undefined)
-                    ? Number(data.kaggle_precision).toFixed(2) + "%"
-                    : "N/A";
-
-
-                // Recall
-                document.getElementById("recall").textContent =
-                    (data.kaggle_recall !== null && data.kaggle_recall !== undefined)
-                    ? Number(data.kaggle_recall).toFixed(2) + "%"
-                    : "N/A";
-
-
-                // F1 Score
-                document.getElementById("f1Score").textContent =
-                    (data.kaggle_f1_score !== null && data.kaggle_f1_score !== undefined)
-                    ? Number(data.kaggle_f1_score).toFixed(2) + "%"
-                    : "N/A";
-
+                return "N/A";
 
             }
 
-            catch (error) {
+            return Number(value).toFixed(2) + "%";
+        }
 
-                console.error(
-                    "Failed to load model performance:",
-                    error
-                );
 
-            }
+        /* ==================================================
+           KAGGLE PERFORMANCE
+        ================================================== */
+
+        document.getElementById(
+            "kaggleAccuracy"
+        ).textContent =
+            formatMetric(
+                data.kaggle_accuracy
+            );
+
+
+        document.getElementById(
+            "kagglePrecision"
+        ).textContent =
+            formatMetric(
+                data.kaggle_precision
+            );
+
+
+        document.getElementById(
+            "kaggleRecall"
+        ).textContent =
+            formatMetric(
+                data.kaggle_recall
+            );
+
+
+        document.getElementById(
+            "kaggleF1"
+        ).textContent =
+            formatMetric(
+                data.kaggle_f1_score
+            );
+
+
+        /* ==================================================
+           USER-LABELLED DATA COUNT
+        ================================================== */
+
+        const labeledTweets =
+            data.user_labeled_tweets || 0;
+
+
+        document.getElementById(
+            "userLabeledTweets"
+        ).textContent =
+            labeledTweets;
+
+
+        /* ==================================================
+           USER PERFORMANCE
+        ================================================== */
+
+        document.getElementById(
+            "userAccuracy"
+        ).textContent =
+            formatMetric(
+                data.user_accuracy
+            );
+
+
+        document.getElementById(
+            "userPrecision"
+        ).textContent =
+            formatMetric(
+                data.user_precision
+            );
+
+
+        document.getElementById(
+            "userRecall"
+        ).textContent =
+            formatMetric(
+                data.user_recall
+            );
+
+
+        document.getElementById(
+            "userF1"
+        ).textContent =
+            formatMetric(
+                data.user_f1_score
+            );
+
+
+        /* ==================================================
+           USER DESCRIPTION
+        ================================================== */
+
+        const description =
+            document.getElementById(
+                "userAccuracyDescription"
+            );
+
+
+        if (labeledTweets === 0) {
+
+            description.textContent =
+                "No labelled data";
 
         }
+
+        else if (labeledTweets === 1) {
+
+            description.textContent =
+                "1 labelled tweet";
+
+        }
+
+        else {
+
+            description.textContent =
+                labeledTweets +
+                " labelled tweets";
+
+        }
+
+    }
+
+
+    catch (error) {
+
+        console.error(
+            "Failed to load model performance:",
+            error
+        );
+
+    }
+
+}
 
 
 

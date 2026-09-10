@@ -1442,31 +1442,18 @@ def model_performance():
         # KAGGLE PERFORMANCE
         # ==================================================
 
-        kaggle_accuracy = (
-            KAGGLE_PERFORMANCE["accuracy"]
-        )
-
-        kaggle_precision = (
-            KAGGLE_PERFORMANCE["precision"]
-        )
-
-        kaggle_recall = (
-            KAGGLE_PERFORMANCE["recall"]
-        )
-
-        kaggle_f1 = (
-            KAGGLE_PERFORMANCE["f1_score"]
-        )
+        kaggle_accuracy = KAGGLE_PERFORMANCE["accuracy"]
+        kaggle_precision = KAGGLE_PERFORMANCE["precision"]
+        kaggle_recall = KAGGLE_PERFORMANCE["recall"]
+        kaggle_f1 = KAGGLE_PERFORMANCE["f1_score"]
 
 
         # ==================================================
-        # USER PERFORMANCE
+        # USER-LABELLED PERFORMANCE
         # ==================================================
 
         conn = get_db_connection()
-
         cursor = conn.cursor()
-
 
         query = """
         SELECT
@@ -1477,54 +1464,40 @@ def model_performance():
         AND TRIM(actual_sentiment) <> ''
         """
 
-
         cursor.execute(query)
 
         rows = cursor.fetchall()
 
-
         cursor.close()
-
         conn.close()
 
 
+        # ==================================================
+        # PREPARE ACTUAL + PREDICTED VALUES
+        # ==================================================
+
         y_true = []
-
         y_pred = []
-
 
         for row in rows:
 
-            predicted = normalize_sentiment(
-                row[0]
-            )
+            predicted = normalize_sentiment(row[0])
+            actual = normalize_sentiment(row[1])
 
-            actual = normalize_sentiment(
-                row[1]
-            )
-
+            valid_sentiments = [
+                "positive",
+                "negative",
+                "neutral"
+            ]
 
             if (
-                predicted in [
-                    "positive",
-                    "negative",
-                    "neutral"
-                ]
+                predicted in valid_sentiments
                 and
-                actual in [
-                    "positive",
-                    "negative",
-                    "neutral"
-                ]
+                actual in valid_sentiments
             ):
 
-                y_pred.append(
-                    predicted
-                )
-
-                y_true.append(
-                    actual
-                )
+                y_pred.append(predicted)
+                y_true.append(actual)
 
 
         # ==================================================
@@ -1538,47 +1511,31 @@ def model_performance():
                 y_pred
             )
 
-            user_accuracy = (
-                user_metrics["accuracy"]
-            )
-
-            user_precision = (
-                user_metrics["precision"]
-            )
-
-            user_recall = (
-                user_metrics["recall"]
-            )
-
-            user_f1 = (
-                user_metrics["f1_score"]
-            )
+            user_accuracy = user_metrics["accuracy"]
+            user_precision = user_metrics["precision"]
+            user_recall = user_metrics["recall"]
+            user_f1 = user_metrics["f1_score"]
 
         else:
 
-            # IMPORTANT:
-            # Do not show 0%.
-            # There is no labelled user data yet.
-
             user_accuracy = None
-
             user_precision = None
-
             user_recall = None
-
             user_f1 = None
 
 
         # ==================================================
-        # RETURN
+        # RETURN PERFORMANCE
         # ==================================================
 
         return jsonify({
 
             "success": True,
 
+            # ----------------------------------------------
+            # KAGGLE
+            # ----------------------------------------------
 
-            # Kaggle
             "kaggle_accuracy":
                 kaggle_accuracy,
 
@@ -1592,7 +1549,10 @@ def model_performance():
                 kaggle_f1,
 
 
-            # User
+            # ----------------------------------------------
+            # USER-LABELLED
+            # ----------------------------------------------
+
             "user_labeled_tweets":
                 len(y_true),
 
