@@ -712,17 +712,13 @@
 
             try {
 
-                const response = await fetch("/api/analytics");
+                const response =
+                    await fetch("/api/analytics");
 
-                if (!response.ok) {
-                    throw new Error(
-                        "Analytics API returned HTTP " + response.status
-                    );
-                }
+                const data =
+                    await response.json();
 
-                const data = await response.json();
-
-                console.log("Analytics API response:", data);
+                console.log("Analytics response:", data);
 
 
                 if (!data.success) {
@@ -744,25 +740,33 @@
                 document.getElementById(
                     "totalPredictions"
                 ).textContent =
-                    Number(data.total_tweets || 0).toLocaleString();
+                    Number(
+                        data.total_tweets || 0
+                    ).toLocaleString();
 
 
                 document.getElementById(
                     "positiveCount"
                 ).textContent =
-                    Number(data.positive || 0).toLocaleString();
+                    Number(
+                        data.positive || 0
+                    ).toLocaleString();
 
 
                 document.getElementById(
                     "negativeCount"
                 ).textContent =
-                    Number(data.negative || 0).toLocaleString();
+                    Number(
+                        data.negative || 0
+                    ).toLocaleString();
 
 
                 document.getElementById(
                     "neutralCount"
                 ).textContent =
-                    Number(data.neutral || 0).toLocaleString();
+                    Number(
+                        data.neutral || 0
+                    ).toLocaleString();
 
 
 
@@ -773,19 +777,25 @@
                 document.getElementById(
                     "positivePercentage"
                 ).textContent =
-                    Number(data.positive_percentage || 0).toFixed(2) + "%";
+                    Number(
+                        data.positive_percentage || 0
+                    ).toFixed(2) + "%";
 
 
                 document.getElementById(
                     "negativePercentage"
                 ).textContent =
-                    Number(data.negative_percentage || 0).toFixed(2) + "%";
+                    Number(
+                        data.negative_percentage || 0
+                    ).toFixed(2) + "%";
 
 
                 document.getElementById(
                     "neutralPercentage"
                 ).textContent =
-                    Number(data.neutral_percentage || 0).toFixed(2) + "%";
+                    Number(
+                        data.neutral_percentage || 0
+                    ).toFixed(2) + "%";
 
 
 
@@ -827,7 +837,27 @@
 
 
                 /* ==================================================
-                   GET CHART CANVASES
+                   SENTIMENT VALUES
+                ================================================== */
+
+                const positive =
+                    Number(data.positive || 0);
+
+                const negative =
+                    Number(data.negative || 0);
+
+                const neutral =
+                    Number(data.neutral || 0);
+
+                const total =
+                    positive +
+                    negative +
+                    neutral;
+
+
+
+                /* ==================================================
+                   GET CANVAS ELEMENTS
                 ================================================== */
 
                 const pieCanvas =
@@ -841,21 +871,10 @@
                     );
 
 
-                if (!pieCanvas) {
+                if (!pieCanvas || !barCanvas) {
 
                     console.error(
-                        "sentimentPieChart canvas not found."
-                    );
-
-                    return;
-
-                }
-
-
-                if (!barCanvas) {
-
-                    console.error(
-                        "sentimentBarChart canvas not found."
+                        "Chart canvas elements not found."
                     );
 
                     return;
@@ -865,48 +884,31 @@
 
 
                 /* ==================================================
-                   DESTROY OLD CHARTS
+                   DESTROY EXISTING CHARTS
                 ================================================== */
 
-                if (window.sentimentPieChart) {
+                const existingPie =
+                    Chart.getChart(pieCanvas);
 
-                    window.sentimentPieChart.destroy();
-
-                    window.sentimentPieChart = null;
-
+                if (existingPie) {
+                    existingPie.destroy();
                 }
 
 
-                if (window.sentimentBarChart) {
+                const existingBar =
+                    Chart.getChart(barCanvas);
 
-                    window.sentimentBarChart.destroy();
-
-                    window.sentimentBarChart = null;
-
+                if (existingBar) {
+                    existingBar.destroy();
                 }
 
 
 
                 /* ==================================================
-                   SENTIMENT VALUES
+                   SENTIMENT DISTRIBUTION - DOUGHNUT
                 ================================================== */
 
-                const positive =
-                    Number(data.positive || 0);
-
-                const negative =
-                    Number(data.negative || 0);
-
-                const neutral =
-                    Number(data.neutral || 0);
-
-
-
-                /* ==================================================
-                   SENTIMENT DISTRIBUTION
-                ================================================== */
-
-                window.sentimentPieChart = new Chart(
+                new Chart(
                     pieCanvas,
                     {
 
@@ -938,7 +940,7 @@
 
                             responsive: true,
 
-                            maintainAspectRatio: true,
+                            maintainAspectRatio: false,
 
                             cutout: "55%",
 
@@ -948,7 +950,19 @@
 
                                     display: true,
 
-                                    position: "bottom"
+                                    position: "bottom",
+
+                                    labels: {
+
+                                        padding: 15,
+
+                                        font: {
+
+                                            size: 14
+
+                                        }
+
+                                    }
 
                                 },
 
@@ -963,12 +977,6 @@
                                                     context.raw || 0
                                                 );
 
-                                            const total =
-                                                positive
-                                                + negative
-                                                + neutral;
-
-
                                             const percentage =
                                                 total > 0
                                                 ?
@@ -979,7 +987,6 @@
                                                 ).toFixed(2)
                                                 :
                                                 "0.00";
-
 
                                             return (
                                                 context.label
@@ -1006,10 +1013,10 @@
 
 
                 /* ==================================================
-                   SENTIMENT COMPARISON
+                   SENTIMENT COMPARISON - BAR
                 ================================================== */
 
-                window.sentimentBarChart = new Chart(
+                new Chart(
                     barCanvas,
                     {
 
@@ -1025,7 +1032,8 @@
 
                             datasets: [{
 
-                                label: "Number of Tweets",
+                                label:
+                                    "Number of Tweets",
 
                                 data: [
                                     positive,
@@ -1043,7 +1051,7 @@
 
                             responsive: true,
 
-                            maintainAspectRatio: true,
+                            maintainAspectRatio: false,
 
                             scales: {
 
@@ -1080,12 +1088,6 @@
                                                     context.raw || 0
                                                 );
 
-                                            const total =
-                                                positive
-                                                + negative
-                                                + neutral;
-
-
                                             const percentage =
                                                 total > 0
                                                 ?
@@ -1096,7 +1098,6 @@
                                                 ).toFixed(2)
                                                 :
                                                 "0.00";
-
 
                                             return (
                                                 value
@@ -1119,27 +1120,14 @@
                 );
 
 
-                /* ==================================================
-                   SUCCESS MESSAGE
-                ================================================== */
-
                 console.log(
-                    "Charts loaded successfully."
-                );
-
-                console.log(
-                    "Positive:",
-                    positive
-                );
-
-                console.log(
-                    "Negative:",
-                    negative
-                );
-
-                console.log(
-                    "Neutral:",
-                    neutral
+                    "Charts created successfully:",
+                    {
+                        positive: positive,
+                        negative: negative,
+                        neutral: neutral,
+                        total: total
+                    }
                 );
 
 
@@ -1149,107 +1137,6 @@
 
                 console.error(
                     "Failed to load analytics:",
-                    error
-                );
-
-            }
-
-        }
-
-        /* ==================================================
-           LOAD MODEL PERFORMANCE
-        ================================================== */
-
-        async function loadModelPerformance() {
-
-            try {
-
-                const response =
-                    await fetch(
-                        "/api/model-performance"
-                    );
-
-
-                const data =
-                    await response.json();
-
-
-                if (!data.success) {
-
-                    console.error(
-                        "Model performance error:",
-                        data.error
-                    );
-
-                    return;
-
-                }
-
-
-                /* ==========================================
-                   ACCURACY
-                ========================================== */
-
-                document.getElementById(
-                    "accuracy"
-                ).textContent =
-                    Number(
-                        data.accuracy
-                    ).toFixed(2)
-                    + "%";
-
-
-                /* ==========================================
-                   PRECISION
-                ========================================== */
-
-                document.getElementById(
-                    "precision"
-                ).textContent =
-                    Number(
-                        data.precision
-                    ).toFixed(2)
-                    + "%";
-
-
-                /* ==========================================
-                   RECALL
-                ========================================== */
-
-                document.getElementById(
-                    "recall"
-                ).textContent =
-                    Number(
-                        data.recall
-                    ).toFixed(2)
-                    + "%";
-
-
-                /* ==========================================
-                   F1 SCORE
-                ========================================== */
-
-                document.getElementById(
-                    "f1Score"
-                ).textContent =
-                    Number(
-                        data.f1_score
-                    ).toFixed(2)
-                    + "%";
-
-
-                console.log(
-                    "Model performance loaded:",
-                    data
-                );
-
-            }
-
-
-            catch (error) {
-
-                console.error(
-                    "Failed to load model performance:",
                     error
                 );
 
@@ -1269,9 +1156,7 @@
 
         loadModelPerformance();
 
-
     </script>
-
 
 </body>
 
