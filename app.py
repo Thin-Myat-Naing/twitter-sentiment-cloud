@@ -15,6 +15,21 @@ from sklearn.metrics import (
 
 from db.db import get_db_connection, setup_database
 
+df = pd.read_csv("tweet.csv")
+
+print("Columns:")
+print(df.columns.tolist())
+
+print("\nNumber of rows:")
+print(len(df))
+
+print("\nSentiment values:")
+if "sentiment" in df.columns:
+    print(df["sentiment"].value_counts(dropna=False))
+
+print("\nFirst 10 rows:")
+if "text" in df.columns and "sentiment" in df.columns:
+    print(df[["text", "sentiment"]].head(10).to_string())
 
 # ==========================================================
 # FLASK APPLICATION
@@ -265,29 +280,27 @@ def prepare_kaggle_dataset():
 
         return pd.DataFrame()
 
-    required_columns = [
-        "textID",
-        "text",
-        "selected_text",
-        "sentiment"
-    ]
-
-    missing_columns = [
-        column
-        for column in required_columns
-        if column not in kaggle_df.columns
-    ]
-
-    if missing_columns:
-
-        print(
-            "Missing columns in tweet.csv:",
-            missing_columns
-        )
-
-        return pd.DataFrame()
-
     df = kaggle_df.copy()
+
+    # Standardize column names to lowercase
+    df.columns = [str(col).strip().lower() for col in df.columns]
+
+    # Map potential ID column names
+    id_col = None
+    for candidate in ["textid", "id", "text_id", "tweet_id", "tweetid"]:
+        if candidate in df.columns:
+            id_col = candidate
+            break
+
+    # If no ID column exists, create one from index
+    if not id_col:
+        df["textid"] = df.index
+        id_col = "textid"
+
+    # Ensure required text and sentiment columns exist
+    if "text" not in df.columns or "sentiment" not in df.columns:
+        print("Missing required 'text' or 'sentiment' column in tweet.csv")
+        return pd.DataFrame()
 
     # Remove missing text/sentiment
     df = df.dropna(
@@ -299,7 +312,7 @@ def prepare_kaggle_dataset():
 
     # Remove duplicate text IDs
     df = df.drop_duplicates(
-        subset=["textID"]
+        subset=[id_col]
     )
 
     # Normalize sentiment
@@ -308,7 +321,7 @@ def prepare_kaggle_dataset():
         .apply(normalize_sentiment)
     )
 
-    # Keep only our three classes
+    # Keep only target classes
     df = df[
         df["sentiment"].isin(
             [
@@ -488,7 +501,7 @@ def calculate_kaggle_performance():
         }
 
 
-# Calculate when application starts
+# Calculate performance metrics after dataset is prepared
 KAGGLE_PERFORMANCE = (
     calculate_kaggle_performance()
 )

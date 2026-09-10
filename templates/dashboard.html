@@ -704,67 +704,151 @@
 
 
 
-       /* ==================================================
+        /* ==================================================
            LOAD COMBINED DATASET ANALYTICS
         ================================================== */
 
-        /* ==================================================
-   LOAD MODEL PERFORMANCE
-================================================== */
+        async function loadAnalytics() {
 
-async function loadModelPerformance() {
+            try {
 
-    try {
+                const response =
+                    await fetch("/api/analytics");
 
-        const response =
-            await fetch("/api/model-performance");
+                const data =
+                    await response.json();
 
-        const data =
-            await response.json();
+                if (!data.success) {
 
-        console.log("Model performance:", data);
+                    console.error(
+                        "Analytics error:",
+                        data.error
+                    );
 
-        if (!data.success) {
+                    return;
 
-            console.error(
-                "Model performance error:",
-                data.error
-            );
+                }
 
-            return;
+
+                // Cards
+                document.getElementById("totalPredictions").textContent =
+                    data.total_tweets;
+
+                document.getElementById("positiveCount").textContent =
+                    data.positive;
+
+                document.getElementById("positivePercentage").textContent =
+                    data.positive_percentage + "%";
+
+                document.getElementById("negativeCount").textContent =
+                    data.negative;
+
+                document.getElementById("negativePercentage").textContent =
+                    data.negative_percentage + "%";
+
+                document.getElementById("neutralCount").textContent =
+                    data.neutral;
+
+                document.getElementById("neutralPercentage").textContent =
+                    data.neutral_percentage + "%";
+
+
+                // Lengths
+                document.getElementById("averageTweetLength").textContent =
+                    data.average_tweet_length;
+
+                document.getElementById("averagePositiveLength").textContent =
+                    data.average_length_positive;
+
+                document.getElementById("averageNegativeLength").textContent =
+                    data.average_length_negative;
+
+                document.getElementById("averageNeutralLength").textContent =
+                    data.average_length_neutral;
+
+            }
+
+            catch (error) {
+
+                console.error(
+                    "Failed to load analytics:",
+                    error
+                );
+
+            }
+
         }
 
 
-        // Accuracy
-        document.getElementById("accuracy").textContent =
-            Number(data.accuracy).toFixed(2) + "%";
+
+        /* ==================================================
+           LOAD MODEL PERFORMANCE
+        ================================================== */
+
+        async function loadModelPerformance() {
+
+            try {
+
+                const response =
+                    await fetch("/api/model-performance");
+
+                const data =
+                    await response.json();
+
+                console.log("Model performance:", data);
+
+                if (!data.success) {
+
+                    console.error(
+                        "Model performance error:",
+                        data.error
+                    );
+
+                    return;
+
+                }
 
 
-        // Precision
-        document.getElementById("precision").textContent =
-            Number(data.precision).toFixed(2) + "%";
+                // Accuracy
+                document.getElementById("accuracy").textContent =
+                    (data.kaggle_accuracy !== null && data.kaggle_accuracy !== undefined)
+                    ? Number(data.kaggle_accuracy).toFixed(2) + "%"
+                    : "N/A";
 
 
-        // Recall
-        document.getElementById("recall").textContent =
-            Number(data.recall).toFixed(2) + "%";
+                // Precision
+                document.getElementById("precision").textContent =
+                    (data.kaggle_precision !== null && data.kaggle_precision !== undefined)
+                    ? Number(data.kaggle_precision).toFixed(2) + "%"
+                    : "N/A";
 
 
-        // F1 Score
-        document.getElementById("f1Score").textContent =
-            Number(data.f1_score).toFixed(2) + "%";
+                // Recall
+                document.getElementById("recall").textContent =
+                    (data.kaggle_recall !== null && data.kaggle_recall !== undefined)
+                    ? Number(data.kaggle_recall).toFixed(2) + "%"
+                    : "N/A";
 
 
-    }
-    catch (error) {
+                // F1 Score
+                document.getElementById("f1Score").textContent =
+                    (data.kaggle_f1_score !== null && data.kaggle_f1_score !== undefined)
+                    ? Number(data.kaggle_f1_score).toFixed(2) + "%"
+                    : "N/A";
 
-        console.error(
-            "Failed to load model performance:",
-            error
-        );
 
-    }
-}
+            }
+
+            catch (error) {
+
+                console.error(
+                    "Failed to load model performance:",
+                    error
+                );
+
+            }
+
+        }
 
 
 
