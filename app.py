@@ -4,32 +4,9 @@ import re
 import joblib
 import pandas as pd
 import numpy as np
-import psycopg2
-
-from sklearn.metrics import (
-    accuracy_score,
-    precision_score,
-    recall_score,
-    f1_score
-)
 
 from db.db import get_db_connection, setup_database
 
-df = pd.read_csv("tweet.csv")
-
-print("Columns:")
-print(df.columns.tolist())
-
-print("\nNumber of rows:")
-print(len(df))
-
-print("\nSentiment values:")
-if "sentiment" in df.columns:
-    print(df["sentiment"].value_counts(dropna=False))
-
-print("\nFirst 10 rows:")
-if "text" in df.columns and "sentiment" in df.columns:
-    print(df[["text", "sentiment"]].head(10).to_string())
 
 # ==========================================================
 # FLASK APPLICATION
@@ -116,6 +93,18 @@ try:
         f"{len(kaggle_df)} rows"
     )
 
+    print("Columns:")
+    print(kaggle_df.columns.tolist())
+
+    if "sentiment" in kaggle_df.columns:
+
+        print("\nSentiment values:")
+
+        print(
+            kaggle_df["sentiment"]
+            .value_counts(dropna=False)
+        )
+
 except Exception as e:
 
     print("Error loading tweet.csv:")
@@ -149,7 +138,6 @@ def normalize_sentiment(value):
 
     value = str(value).strip().lower()
 
-    # Numeric labels used by many Kaggle datasets
     numeric_mapping = {
 
         "0": "neutral",
@@ -164,7 +152,6 @@ def normalize_sentiment(value):
 
         return numeric_mapping[value]
 
-    # Common alternative names
     if value in ["pos", "positive"]:
 
         return "positive"
@@ -187,32 +174,49 @@ def normalize_sentiment(value):
 def clean_text(text):
 
     if text is None:
+
         return ""
 
     text = str(text)
 
+
+    # ------------------------------------------------------
     # Remove URLs
+    # ------------------------------------------------------
+
     text = re.sub(
         r"http\S+|www\S+",
         "",
         text
     )
 
+
+    # ------------------------------------------------------
     # Remove @mentions
+    # ------------------------------------------------------
+
     text = re.sub(
         r"@\w+",
         "",
         text
     )
 
+
+    # ------------------------------------------------------
     # Keep hashtag word but remove #
+    # ------------------------------------------------------
+
     text = re.sub(
         r"#(\w+)",
         r"\1",
         text
     )
 
+
+    # ------------------------------------------------------
     # Common contractions
+    # ------------------------------------------------------
+
     contractions = {
 
         "can't": "cannot",
@@ -239,6 +243,7 @@ def clean_text(text):
 
     }
 
+
     for contraction, replacement in contractions.items():
 
         text = re.sub(
@@ -248,22 +253,35 @@ def clean_text(text):
             flags=re.IGNORECASE
         )
 
+
+    # ------------------------------------------------------
     # Lowercase
+    # ------------------------------------------------------
+
     text = text.lower()
 
+
+    # ------------------------------------------------------
     # Keep English letters and basic punctuation
+    # ------------------------------------------------------
+
     text = re.sub(
         r"[^a-z0-9\s!?.,']",
         " ",
         text
     )
 
+
+    # ------------------------------------------------------
     # Remove extra spaces
+    # ------------------------------------------------------
+
     text = re.sub(
         r"\s+",
         " ",
         text
     ).strip()
+
 
     return text
 
@@ -276,33 +294,79 @@ def prepare_kaggle_dataset():
 
     global kaggle_df
 
+
     if kaggle_df.empty:
 
         return pd.DataFrame()
 
+
     df = kaggle_df.copy()
 
-    # Standardize column names to lowercase
-    df.columns = [str(col).strip().lower() for col in df.columns]
 
-    # Map potential ID column names
+    # ------------------------------------------------------
+    # Standardize column names
+    # ------------------------------------------------------
+
+    df.columns = [
+        str(col).strip().lower()
+        for col in df.columns
+    ]
+
+
+    # ------------------------------------------------------
+    # Find ID column
+    # ------------------------------------------------------
+
     id_col = None
-    for candidate in ["textid", "id", "text_id", "tweet_id", "tweetid"]:
+
+    for candidate in [
+        "textid",
+        "id",
+        "text_id",
+        "tweet_id",
+        "tweetid"
+    ]:
+
         if candidate in df.columns:
+
             id_col = candidate
+
             break
 
-    # If no ID column exists, create one from index
+
+    # ------------------------------------------------------
+    # Create ID if necessary
+    # ------------------------------------------------------
+
     if not id_col:
+
         df["textid"] = df.index
+
         id_col = "textid"
 
-    # Ensure required text and sentiment columns exist
-    if "text" not in df.columns or "sentiment" not in df.columns:
-        print("Missing required 'text' or 'sentiment' column in tweet.csv")
+
+    # ------------------------------------------------------
+    # Check required columns
+    # ------------------------------------------------------
+
+    if (
+        "text" not in df.columns
+        or
+        "sentiment" not in df.columns
+    ):
+
+        print(
+            "Missing required 'text' or "
+            "'sentiment' column in tweet.csv"
+        )
+
         return pd.DataFrame()
 
-    # Remove missing text/sentiment
+
+    # ------------------------------------------------------
+    # Remove missing values
+    # ------------------------------------------------------
+
     df = df.dropna(
         subset=[
             "text",
@@ -310,18 +374,30 @@ def prepare_kaggle_dataset():
         ]
     )
 
-    # Remove duplicate text IDs
+
+    # ------------------------------------------------------
+    # Remove duplicate IDs
+    # ------------------------------------------------------
+
     df = df.drop_duplicates(
         subset=[id_col]
     )
 
+
+    # ------------------------------------------------------
     # Normalize sentiment
+    # ------------------------------------------------------
+
     df["sentiment"] = (
         df["sentiment"]
         .apply(normalize_sentiment)
     )
 
-    # Keep only target classes
+
+    # ------------------------------------------------------
+    # Keep valid sentiment classes
+    # ------------------------------------------------------
+
     df = df[
         df["sentiment"].isin(
             [
@@ -332,179 +408,36 @@ def prepare_kaggle_dataset():
         )
     ]
 
+
+    # ------------------------------------------------------
     # Clean text
+    # ------------------------------------------------------
+
     df["cleaned_text"] = (
         df["text"]
         .apply(clean_text)
     )
 
+
+    # ------------------------------------------------------
     # Tweet length
+    # ------------------------------------------------------
+
     df["tweet_length"] = (
         df["text"]
         .astype(str)
         .str.len()
     )
 
+
     return df
 
 
+# ==========================================================
+# PREPARE DATASET
+# ==========================================================
+
 kaggle_data = prepare_kaggle_dataset()
-
-
-# ==========================================================
-# CALCULATE MODEL METRICS
-# ==========================================================
-
-def calculate_metrics(y_true, y_pred):
-
-    if len(y_true) == 0:
-
-        return {
-
-            "accuracy": None,
-
-            "precision": None,
-
-            "recall": None,
-
-            "f1_score": None
-
-        }
-
-    y_true = [
-        normalize_sentiment(x)
-        for x in y_true
-    ]
-
-    y_pred = [
-        normalize_sentiment(x)
-        for x in y_pred
-    ]
-
-    return {
-
-        "accuracy": round(
-            accuracy_score(
-                y_true,
-                y_pred
-            ) * 100,
-            2
-        ),
-
-        "precision": round(
-            precision_score(
-                y_true,
-                y_pred,
-                average="macro",
-                zero_division=0
-            ) * 100,
-            2
-        ),
-
-        "recall": round(
-            recall_score(
-                y_true,
-                y_pred,
-                average="macro",
-                zero_division=0
-            ) * 100,
-            2
-        ),
-
-        "f1_score": round(
-            f1_score(
-                y_true,
-                y_pred,
-                average="macro",
-                zero_division=0
-            ) * 100,
-            2
-        )
-
-    }
-
-
-# ==========================================================
-# KAGGLE MODEL PERFORMANCE
-# ==========================================================
-
-def calculate_kaggle_performance():
-
-    if kaggle_data.empty:
-
-        return {
-
-            "accuracy": None,
-
-            "precision": None,
-
-            "recall": None,
-
-            "f1_score": None
-
-        }
-
-    if model is None or vectorizer is None:
-
-        return {
-
-            "accuracy": None,
-
-            "precision": None,
-
-            "recall": None,
-
-            "f1_score": None
-
-        }
-
-    try:
-
-        X = vectorizer.transform(
-            kaggle_data["cleaned_text"]
-        )
-
-        predictions = model.predict(X)
-
-        predictions = [
-            normalize_sentiment(x)
-            for x in predictions
-        ]
-
-        actual = (
-            kaggle_data["sentiment"]
-            .tolist()
-        )
-
-        return calculate_metrics(
-            actual,
-            predictions
-        )
-
-    except Exception as e:
-
-        print(
-            "Kaggle performance error:",
-            e
-        )
-
-        return {
-
-            "accuracy": None,
-
-            "precision": None,
-
-            "recall": None,
-
-            "f1_score": None
-
-        }
-
-
-# Calculate performance metrics after dataset is prepared
-KAGGLE_PERFORMANCE = (
-    calculate_kaggle_performance()
-)
 
 
 # ==========================================================
@@ -545,16 +478,26 @@ def predict():
 
         data = request.get_json()
 
+
+        # --------------------------------------------------
+        # Validate JSON
+        # --------------------------------------------------
+
         if not data:
 
             return jsonify({
 
                 "success": False,
 
-                "error": "No JSON data received."
+                "error":
+                    "No JSON data received."
 
             }), 400
 
+
+        # --------------------------------------------------
+        # Get tweet text
+        # --------------------------------------------------
 
         text = data.get(
             "text",
@@ -562,45 +505,9 @@ def predict():
         ).strip()
 
 
-        # ==================================================
-        # ACTUAL SENTIMENT
-        # ==================================================
-
-        actual_sentiment = data.get(
-            "actual_sentiment"
-        )
-
-
-        if actual_sentiment:
-
-            actual_sentiment = normalize_sentiment(
-                actual_sentiment
-            )
-
-            if actual_sentiment not in [
-                "positive",
-                "negative",
-                "neutral"
-            ]:
-
-                return jsonify({
-
-                    "success": False,
-
-                    "error":
-                        "Actual sentiment must be "
-                        "Positive, Negative, or Neutral."
-
-                }), 400
-
-        else:
-
-            actual_sentiment = None
-
-
-        # ==================================================
-        # VALIDATE TEXT
-        # ==================================================
+        # --------------------------------------------------
+        # Validate text
+        # --------------------------------------------------
 
         if not text:
 
@@ -608,46 +515,52 @@ def predict():
 
                 "success": False,
 
-                "error": "Please enter a tweet."
+                "error":
+                    "Please enter a tweet."
 
             }), 400
 
 
-        # ==================================================
-        # CHECK MODEL
-        # ==================================================
+        # --------------------------------------------------
+        # Check model
+        # --------------------------------------------------
 
-        if model is None or vectorizer is None:
+        if (
+            model is None
+            or
+            vectorizer is None
+        ):
 
             return jsonify({
 
                 "success": False,
 
                 "error":
-                    "Model or vectorizer could not be loaded."
+                    "Model or vectorizer "
+                    "could not be loaded."
 
             }), 500
 
 
-        # ==================================================
-        # CLEAN TEXT
-        # ==================================================
+        # --------------------------------------------------
+        # Clean text
+        # --------------------------------------------------
 
         cleaned = clean_text(text)
 
 
-        # ==================================================
-        # TF-IDF
-        # ==================================================
+        # --------------------------------------------------
+        # TF-IDF transformation
+        # --------------------------------------------------
 
         features = vectorizer.transform(
             [cleaned]
         )
 
 
-        # ==================================================
-        # PREDICTION
-        # ==================================================
+        # --------------------------------------------------
+        # Model prediction
+        # --------------------------------------------------
 
         prediction = model.predict(
             features
@@ -659,11 +572,12 @@ def predict():
         )
 
 
-        # ==================================================
-        # CONFIDENCE
-        # ==================================================
+        # --------------------------------------------------
+        # Confidence
+        # --------------------------------------------------
 
         confidence = None
+
 
         if hasattr(
             model,
@@ -676,9 +590,11 @@ def predict():
                 )[0]
             )
 
+
             confidence = float(
                 np.max(probabilities) * 100
             )
+
 
             confidence = round(
                 confidence,
@@ -686,9 +602,9 @@ def predict():
             )
 
 
-        # ==================================================
-        # SAVE TO POSTGRESQL
-        # ==================================================
+        # --------------------------------------------------
+        # Save prediction to PostgreSQL
+        # --------------------------------------------------
 
         conn = get_db_connection()
 
@@ -700,12 +616,10 @@ def predict():
         (
             tweet_text,
             sentiment,
-            actual_sentiment,
             confidence
         )
         VALUES
         (
-            %s,
             %s,
             %s,
             %s
@@ -719,13 +633,13 @@ def predict():
             (
                 text,
                 sentiment,
-                actual_sentiment,
                 confidence
             )
         )
 
 
         result = cursor.fetchone()
+
 
         prediction_id = result[0]
 
@@ -734,29 +648,31 @@ def predict():
 
         conn.commit()
 
+
         cursor.close()
 
         conn.close()
 
 
-        # ==================================================
-        # RESPONSE
-        # ==================================================
+        # --------------------------------------------------
+        # Return prediction
+        # --------------------------------------------------
 
         return jsonify({
 
             "success": True,
 
-            "prediction": sentiment.capitalize(),
+            "prediction":
+                sentiment.capitalize(),
 
-            "sentiment": sentiment,
+            "sentiment":
+                sentiment,
 
-            "confidence": confidence,
+            "confidence":
+                confidence,
 
-            "actual_sentiment":
-                actual_sentiment,
-
-            "id": prediction_id,
+            "id":
+                prediction_id,
 
             "created_at":
                 created_at.isoformat()
@@ -773,11 +689,13 @@ def predict():
             e
         )
 
+
         return jsonify({
 
             "success": False,
 
-            "error": str(e)
+            "error":
+                str(e)
 
         }), 500
 
@@ -801,7 +719,6 @@ def history():
             id,
             tweet_text,
             sentiment,
-            actual_sentiment,
             confidence,
             created_at
         FROM predictions
@@ -831,14 +748,15 @@ def history():
 
             sentiment = row[2]
 
-            actual_sentiment = row[3]
+            confidence = row[3]
 
-            confidence = row[4]
-
-            created_at = row[5]
+            created_at = row[4]
 
 
-            # Convert confidence to normal float
+            # ------------------------------------------------
+            # Confidence
+            # ------------------------------------------------
+
             if confidence is not None:
 
                 confidence = float(
@@ -846,7 +764,10 @@ def history():
                 )
 
 
-            # Format date
+            # ------------------------------------------------
+            # Date
+            # ------------------------------------------------
+
             if created_at:
 
                 created_at = created_at.strftime(
@@ -866,11 +787,6 @@ def history():
                     sentiment.capitalize()
                     if sentiment
                     else "",
-
-                "actual_sentiment":
-                    actual_sentiment.capitalize()
-                    if actual_sentiment
-                    else None,
 
                 "confidence":
                     confidence,
@@ -893,11 +809,13 @@ def history():
             e
         )
 
+
         return jsonify({
 
             "success": False,
 
-            "error": str(e)
+            "error":
+                str(e)
 
         }), 500
 
@@ -964,6 +882,10 @@ def analytics():
             )
 
 
+            # ------------------------------------------------
+            # Kaggle average tweet length
+            # ------------------------------------------------
+
             kaggle_avg_length = round(
                 kaggle_data[
                     "tweet_length"
@@ -971,6 +893,10 @@ def analytics():
                 2
             )
 
+
+            # ------------------------------------------------
+            # Positive lengths
+            # ------------------------------------------------
 
             positive_lengths = (
                 kaggle_data.loc[
@@ -981,6 +907,10 @@ def analytics():
             )
 
 
+            # ------------------------------------------------
+            # Negative lengths
+            # ------------------------------------------------
+
             negative_lengths = (
                 kaggle_data.loc[
                     kaggle_data["sentiment"]
@@ -989,6 +919,10 @@ def analytics():
                 ]
             )
 
+
+            # ------------------------------------------------
+            # Neutral lengths
+            # ------------------------------------------------
 
             neutral_lengths = (
                 kaggle_data.loc[
@@ -1065,7 +999,7 @@ def analytics():
 
 
         # ==================================================
-        # USER DATA
+        # USER PREDICTION DATA
         # ==================================================
 
         conn = get_db_connection()
@@ -1076,7 +1010,6 @@ def analytics():
         user_query = """
         SELECT
             sentiment,
-            actual_sentiment,
             tweet_text
         FROM predictions
         """
@@ -1086,6 +1019,7 @@ def analytics():
             user_query
         )
 
+
         user_rows = cursor.fetchall()
 
 
@@ -1093,6 +1027,10 @@ def analytics():
 
         conn.close()
 
+
+        # ==================================================
+        # USER COUNTS
+        # ==================================================
 
         user_total = len(
             user_rows
@@ -1121,7 +1059,9 @@ def analytics():
                 row[0]
             )
 
-            tweet_text = row[2] or ""
+
+            tweet_text = row[1] or ""
+
 
             tweet_length = len(
                 tweet_text
@@ -1213,6 +1153,30 @@ def analytics():
         ) if user_tweet_lengths else 0
 
 
+        user_avg_positive = round(
+            np.mean(
+                user_positive_lengths
+            ),
+            2
+        ) if user_positive_lengths else 0
+
+
+        user_avg_negative = round(
+            np.mean(
+                user_negative_lengths
+            ),
+            2
+        ) if user_negative_lengths else 0
+
+
+        user_avg_neutral = round(
+            np.mean(
+                user_neutral_lengths
+            ),
+            2
+        ) if user_neutral_lengths else 0
+
+
         # ==================================================
         # COMBINED DATA
         # ==================================================
@@ -1240,6 +1204,10 @@ def analytics():
             + user_neutral
         )
 
+
+        # ==================================================
+        # COMBINED PERCENTAGES
+        # ==================================================
 
         if combined_total > 0:
 
@@ -1308,7 +1276,98 @@ def analytics():
 
 
         # ==================================================
-        # RETURN DATA
+        # COMBINED SENTIMENT AVERAGE LENGTHS
+        # ==================================================
+
+        combined_positive_lengths = []
+
+        combined_negative_lengths = []
+
+        combined_neutral_lengths = []
+
+
+        # Kaggle positive
+
+        if not kaggle_data.empty:
+
+            combined_positive_lengths.extend(
+                kaggle_data.loc[
+                    kaggle_data["sentiment"]
+                    == "positive",
+                    "tweet_length"
+                ].tolist()
+            )
+
+
+            combined_negative_lengths.extend(
+                kaggle_data.loc[
+                    kaggle_data["sentiment"]
+                    == "negative",
+                    "tweet_length"
+                ].tolist()
+            )
+
+
+            combined_neutral_lengths.extend(
+                kaggle_data.loc[
+                    kaggle_data["sentiment"]
+                    == "neutral",
+                    "tweet_length"
+                ].tolist()
+            )
+
+
+        # User positive
+
+        combined_positive_lengths.extend(
+            user_positive_lengths
+        )
+
+
+        # User negative
+
+        combined_negative_lengths.extend(
+            user_negative_lengths
+        )
+
+
+        # User neutral
+
+        combined_neutral_lengths.extend(
+            user_neutral_lengths
+        )
+
+
+        # --------------------------------------------------
+        # Final average lengths
+        # --------------------------------------------------
+
+        combined_avg_positive = round(
+            np.mean(
+                combined_positive_lengths
+            ),
+            2
+        ) if combined_positive_lengths else 0
+
+
+        combined_avg_negative = round(
+            np.mean(
+                combined_negative_lengths
+            ),
+            2
+        ) if combined_negative_lengths else 0
+
+
+        combined_avg_neutral = round(
+            np.mean(
+                combined_neutral_lengths
+            ),
+            2
+        ) if combined_neutral_lengths else 0
+
+
+        # ==================================================
+        # RETURN ANALYTICS
         # ==================================================
 
         return jsonify({
@@ -1402,13 +1461,13 @@ def analytics():
                 combined_average_length,
 
             "average_length_positive":
-                kaggle_avg_positive,
+                combined_avg_positive,
 
             "average_length_negative":
-                kaggle_avg_negative,
+                combined_avg_negative,
 
             "average_length_neutral":
-                kaggle_avg_neutral
+                combined_avg_neutral
 
         })
 
@@ -1420,169 +1479,13 @@ def analytics():
             e
         )
 
-        return jsonify({
-
-            "success": False,
-
-            "error": str(e)
-
-        }), 500
-
-
-# ==========================================================
-# MODEL PERFORMANCE API
-# ==========================================================
-
-@app.route("/api/model-performance")
-def model_performance():
-
-    try:
-
-        # ==================================================
-        # KAGGLE PERFORMANCE
-        # ==================================================
-
-        kaggle_accuracy = KAGGLE_PERFORMANCE["accuracy"]
-        kaggle_precision = KAGGLE_PERFORMANCE["precision"]
-        kaggle_recall = KAGGLE_PERFORMANCE["recall"]
-        kaggle_f1 = KAGGLE_PERFORMANCE["f1_score"]
-
-
-        # ==================================================
-        # USER-LABELLED PERFORMANCE
-        # ==================================================
-
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        query = """
-        SELECT
-            sentiment,
-            actual_sentiment
-        FROM predictions
-        WHERE actual_sentiment IS NOT NULL
-        AND TRIM(actual_sentiment) <> ''
-        """
-
-        cursor.execute(query)
-
-        rows = cursor.fetchall()
-
-        cursor.close()
-        conn.close()
-
-
-        # ==================================================
-        # PREPARE ACTUAL + PREDICTED VALUES
-        # ==================================================
-
-        y_true = []
-        y_pred = []
-
-        for row in rows:
-
-            predicted = normalize_sentiment(row[0])
-            actual = normalize_sentiment(row[1])
-
-            valid_sentiments = [
-                "positive",
-                "negative",
-                "neutral"
-            ]
-
-            if (
-                predicted in valid_sentiments
-                and
-                actual in valid_sentiments
-            ):
-
-                y_pred.append(predicted)
-                y_true.append(actual)
-
-
-        # ==================================================
-        # CALCULATE USER METRICS
-        # ==================================================
-
-        if len(y_true) > 0:
-
-            user_metrics = calculate_metrics(
-                y_true,
-                y_pred
-            )
-
-            user_accuracy = user_metrics["accuracy"]
-            user_precision = user_metrics["precision"]
-            user_recall = user_metrics["recall"]
-            user_f1 = user_metrics["f1_score"]
-
-        else:
-
-            user_accuracy = None
-            user_precision = None
-            user_recall = None
-            user_f1 = None
-
-
-        # ==================================================
-        # RETURN PERFORMANCE
-        # ==================================================
-
-        return jsonify({
-
-            "success": True,
-
-            # ----------------------------------------------
-            # KAGGLE
-            # ----------------------------------------------
-
-            "kaggle_accuracy":
-                kaggle_accuracy,
-
-            "kaggle_precision":
-                kaggle_precision,
-
-            "kaggle_recall":
-                kaggle_recall,
-
-            "kaggle_f1_score":
-                kaggle_f1,
-
-
-            # ----------------------------------------------
-            # USER-LABELLED
-            # ----------------------------------------------
-
-            "user_labeled_tweets":
-                len(y_true),
-
-            "user_accuracy":
-                user_accuracy,
-
-            "user_precision":
-                user_precision,
-
-            "user_recall":
-                user_recall,
-
-            "user_f1_score":
-                user_f1
-
-        })
-
-
-    except Exception as e:
-
-        print(
-            "Model performance error:",
-            e
-        )
 
         return jsonify({
 
             "success": False,
 
-            "error": str(e)
+            "error":
+                str(e)
 
         }), 500
 
@@ -1594,12 +1497,16 @@ def model_performance():
 if __name__ == "__main__":
 
     app.run(
+
         host="0.0.0.0",
+
         port=int(
             os.environ.get(
                 "PORT",
                 5000
             )
         ),
+
         debug=False
+
     )
