@@ -10,6 +10,13 @@ body {
     color: #222;
 }
 
+p {
+    line-height: 1.5em;
+}
+
+h2 {
+    padding: 15px 0;
+}
 /* Navigation */
 nav {
     display: flex;
@@ -63,8 +70,9 @@ main {
     border-radius: 15px;
     box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
 }
-.table-container h2 {
-    margin-bottom: 1em;
+
+.analytics-description {
+    padding-bottom: 1em;
 }
 
 /* Container Card */
@@ -239,15 +247,15 @@ button:hover {
     display: none;
 }
 
-.analytics-section {
-    padding: 30px;
-}
-
 .analytics-cards {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 20px;
     margin: 25px 0;
+}
+
+.analytics-cards.total {
+    grid-template-columns: repeat(3, 1fr);
 }
 
 .analytics-card {
